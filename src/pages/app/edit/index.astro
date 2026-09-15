@@ -1,0 +1,402 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { sitePath } from '../../../lib/site';
+---
+<Base title="Edit article" noindex>
+  <section class="max-w-4xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+      <a href={sitePath('/app/')} class="text-sm text-ink-400 hover:text-ink-200">&larr; Dashboard</a>
+      <div class="flex gap-2">
+        <button id="save-btn" class="rounded-xl border border-ink-600 hover:bg-ink-800 px-4 py-2 text-sm">Save draft</button>
+        <button id="publish-btn" class="rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-4 py-2 text-sm">Publish</button>
+      </div>
+    </div>
+    <div id="editor-shell" class="rounded-2xl border border-ink-700 bg-ink-900/60 p-6">
+      <label for="title-input" class="sr-only">Article title</label>
+      <input id="title-input" class="w-full bg-transparent font-display text-3xl font-bold focus:outline-none mb-2" placeholder="Article title" />
+      <label for="keyword-input" class="sr-only">Target keyword</label>
+      <input id="keyword-input" class="w-full bg-transparent text-sm text-ink-400 focus:outline-none border-b border-ink-800 pb-2 mb-4" placeholder="target keyword" />
+      <div class="flex flex-wrap gap-2 mb-2" role="toolbar" aria-label="Formatting">
+        <button data-cmd="h2" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm font-semibold">H2</button>
+        <button data-cmd="h3" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm font-semibold">H3</button>
+        <button data-cmd="bold" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm font-semibold" aria-label="Bold"><strong>B</strong></button>
+        <button data-cmd="italic" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm font-semibold" aria-label="Italic"><em>i</em></button>
+        <button data-cmd="ul" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm" aria-label="Bullet list">&bull; list</button>
+        <button data-cmd="ol" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm" aria-label="Numbered list">1. list</button>
+        <button data-cmd="link" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm">Link</button>
+        <button data-cmd="code" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm">&lt;/&gt;</button>
+        <button data-cmd="image" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm" aria-label="Insert image">Image</button>
+        <button data-cmd="video" class="fmt rounded-lg border border-ink-700 hover:bg-ink-800 px-3 py-1 text-sm" aria-label="Insert video embed">Video</button>
+      </div>
+      <p id="media-status" class="text-xs text-ink-500 mb-3 min-h-[1rem]" role="status" aria-live="polite"></p>
+      <div id="content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Article body" class="min-h-[45vh] prose-article focus:outline-none rounded-xl af-field p-4"></div>
+      <div class="flex justify-between text-xs text-ink-500 mt-3">
+        <span id="word-count">0 words</span>
+        <span id="read-time">0 min read</span>
+      </div>
+    </div>
+    <section class="mt-6 rounded-2xl border border-ink-700 bg-ink-900/60 p-6" aria-labelledby="seo-panel-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+        <h2 id="seo-panel-heading" class="font-display text-xl font-bold">SEO settings</h2>
+        <button id="seo-autogen-btn" type="button" class="rounded-xl border border-brand-400/60 text-brand-300 hover:bg-brand-400/10 px-4 py-2 text-sm font-semibold">Auto-generate SEO</button>
+      </div>
+      <p id="seo-panel-hint" class="text-xs text-ink-500 mb-4">
+        Manual values win. Anything left blank falls back to the generated strategy.
+      </p>
+      <div class="grid gap-4 text-sm">
+        <div>
+          <label for="seo-title-input" class="block font-medium text-ink-300 mb-1">Title tag</label>
+          <input id="seo-title-input" maxlength="120" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="Falls back to the generated title" />
+          <p class="text-xs text-ink-500 mt-1"><span id="seo-title-count">0</span>/60 characters recommended</p>
+        </div>
+        <div>
+          <label for="seo-description-input" class="block font-medium text-ink-300 mb-1">Meta description</label>
+          <textarea id="seo-description-input" rows="3" maxlength="320" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="Falls back to the generated description"></textarea>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label for="seo-canonical-input" class="block font-medium text-ink-300 mb-1">Canonical path</label>
+            <input id="seo-canonical-input" maxlength="200" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="/articles/your-slug/" />
+          </div>
+          <div>
+            <label for="seo-ogimage-input" class="block font-medium text-ink-300 mb-1">OG image URL</label>
+            <input id="seo-ogimage-input" maxlength="2048" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="https://example.com/social.png" />
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="seo-noindex-input" type="checkbox" class="h-4 w-4 rounded border-ink-600" />
+          <label for="seo-noindex-input" class="font-medium text-ink-300">Hide this page from search engines (noindex)</label>
+        </div>
+        <p class="text-xs text-ink-500">Canonical URL: <span id="seo-canonical-preview" class="font-mono break-all"></span></p>
+      </div>
+    </section>
+    <button id="seo-gen-btn" class="mt-6 rounded-xl border border-brand-400/60 text-brand-300 hover:bg-brand-400/10 px-5 py-2.5 text-sm font-semibold">Generate SEO strategy</button>
+    <div id="seo-result" class="mt-4 rounded-2xl border border-ink-700 bg-ink-900/60 p-6 hidden">
+      <h2 class="font-display text-xl font-bold mb-3">SEO strategy</h2>
+      <dl class="grid gap-4 text-sm">
+        <div><dt class="text-ink-500 text-xs uppercase tracking-wide">Title tag</dt><dd id="seo-title" class="mt-1 font-medium"></dd></div>
+        <div><dt class="text-ink-500 text-xs uppercase tracking-wide">Meta description</dt><dd id="seo-meta" class="mt-1"></dd></div>
+        <div><dt class="text-ink-500 text-xs uppercase tracking-wide">H1</dt><dd id="seo-h1" class="mt-1"></dd></div>
+        <div><dt class="text-ink-500 text-xs uppercase tracking-wide">Outline</dt><dd id="seo-outline" class="mt-1"></dd></div>
+      </dl>
+      <button id="seo-apply-btn" class="mt-4 rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-4 py-2 text-sm">Apply to article</button>
+    </div>
+    <p id="editor-status" class="mt-4 text-sm text-ink-500" aria-live="polite"></p>
+  </section>
+</Base>
+<script>
+  import { requireSession } from '../../../lib/auth';
+  import { getSupabase } from '../../../lib/supabase';
+  import { getArticle, updateArticle, changeStatus } from '../../../lib/articles';
+  import { sanitizeArticleHtml } from '../../../lib/sanitize';
+  import { heuristicStrategy } from '../../../lib/seo';
+  import { imageHtml, parseVideoEmbed, videoEmbedHtml } from '../../../lib/media';
+  import {
+    DEFAULT_TITLE_SUFFIX,
+    applySeoOverrides,
+    parseSiteSeo,
+    parseStoredSeo,
+    serializeSeoOverrides,
+    normaliseCanonicalPath
+  } from '../../../lib/seo-settings';
+  import { absoluteUrl } from '../../../lib/site';
+  import { errorMessage } from '../../../lib/errors';
+  import type { ArticleStatus } from '../../../lib/article-state';
+  import type { SeoStrategy } from '../../../lib/seo';
+  import type { SiteSeoDefaults, StoredSeo } from '../../../lib/seo-settings';
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  let articleId = '';
+  let articleSlug = '';
+  let currentStatus: ArticleStatus = 'draft';
+  let currentPublishedAt: string | null = null;
+  /** Everything currently stored in articles.seo_json (strategy + overrides). */
+  let seo: StoredSeo = {};
+  /** Site-level defaults from the Settings page, used to seed "Auto-generate SEO". */
+  let siteSeo: SiteSeoDefaults = { titleSuffix: DEFAULT_TITLE_SUFFIX };
+
+  const el = (id: string) => document.getElementById(id) as HTMLElement;
+  const input = (id: string) => el(id) as HTMLInputElement;
+  const status = (message: string) => {
+    el('editor-status').textContent = message;
+  };
+  const mediaStatus = (message: string) => {
+    el('media-status').textContent = message;
+  };
+
+  /** F14: every Supabase-backed start-up path reports through the live region. */
+  const boot = async (action: (session: { userId: string }) => Promise<void>) => {
+    try {
+      const session = await requireSession();
+      if (!session) return;
+      await action(session);
+    } catch (error) {
+      status(errorMessage(error));
+    }
+  };
+
+  const updateCounts = () => {
+    const text = el('content').innerText.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    el('word-count').textContent = `${words} words`;
+    el('read-time').textContent = `${Math.max(1, Math.round(words / 220))} min read`;
+  };
+
+  /** F3: the editor is a static route, so the article id comes from ?id=. */
+  const articleIdFromQuery = () => new URLSearchParams(window.location.search).get('id') ?? '';
+
+  /* ------------------------------------------------------------------ *
+   * SEO panel (spec FR-6 / FR-10): manual overrides with an auto-fill.
+   * ------------------------------------------------------------------ */
+
+  const canonicalPreview = () => {
+    const typed = input('seo-canonical-input').value;
+    const normalised = normaliseCanonicalPath(typed || `/articles/${articleSlug}/`);
+    el('seo-canonical-preview').textContent = normalised
+      ? absoluteUrl(normalised)
+      : 'not a usable path - this value will be ignored';
+  };
+
+  const updateSeoTitleCount = () => {
+    el('seo-title-count').textContent = String(input('seo-title-input').value.trim().length);
+  };
+
+  /** Writes stored/auto-generated values into the panel (the panel is the source for saving). */
+  const fillSeoPanel = (values: StoredSeo) => {
+    input('seo-title-input').value = values.title ?? '';
+    (el('seo-description-input') as HTMLTextAreaElement).value = values.metaDescription ?? '';
+    input('seo-canonical-input').value = values.canonicalPath ?? '';
+    input('seo-ogimage-input').value = values.ogImage ?? '';
+    input('seo-noindex-input').checked = values.noindex === true;
+    updateSeoTitleCount();
+    canonicalPreview();
+  };
+
+  /**
+   * Reads the panel back. The site-level title suffix / Twitter handle are not
+   * editable here, so they are carried through unchanged.
+   */
+  const readSeoPanel = () =>
+    serializeSeoOverrides({
+      title: input('seo-title-input').value,
+      metaDescription: (el('seo-description-input') as HTMLTextAreaElement).value,
+      canonicalPath: input('seo-canonical-input').value,
+      ogImage: input('seo-ogimage-input').value,
+      noindex: input('seo-noindex-input').checked,
+      titleSuffix: seo.titleSuffix,
+      twitterHandle: seo.twitterHandle
+    });
+
+  input('seo-canonical-input').addEventListener('input', canonicalPreview);
+  input('seo-title-input').addEventListener('input', updateSeoTitleCount);
+
+  /** The Edge Function is used when it answers; the shared heuristic is the fallback. */
+  const generateStrategy = async (keyword: string): Promise<SeoStrategy> => {
+    if (keyword) {
+      try {
+        const { data, error } = await getSupabase().functions.invoke('seo-gen', { body: { keyword } });
+        if (!error && data && typeof data === 'object' && 'strategy' in data) {
+          return (data as { strategy: SeoStrategy }).strategy;
+        }
+      } catch {
+        // Offline or Edge Function unavailable - fall back to the shared heuristic.
+      }
+    }
+    return heuristicStrategy(keyword);
+  };
+
+  /** Best-effort: the site defaults only seed the auto-fill, never block editing. */
+  const loadSiteSeo = async (userId: string) => {
+    const { data, error } = await getSupabase()
+      .from('profiles')
+      .select('settings_json')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) return;
+    siteSeo = parseSiteSeo(data?.settings_json);
+    const parts = [`title suffix "${siteSeo.titleSuffix}"`];
+    if (siteSeo.ogImage) parts.push('default OG image');
+    if (siteSeo.twitterHandle) parts.push(`Twitter ${siteSeo.twitterHandle}`);
+    el('seo-panel-hint').textContent =
+      `Site defaults from Settings (${parts.join(', ')}) are applied by "Auto-generate SEO". Anything left blank falls back to the generated strategy.`;
+  };
+
+  const load = async (session: { userId: string }) => {
+    articleId = articleIdFromQuery();
+    if (!UUID_RE.test(articleId)) {
+      status('No article selected. Open an article from the dashboard.');
+      return;
+    }
+    const article = await getArticle(articleId);
+    input('title-input').value = article.title;
+    input('keyword-input').value = article.keyword;
+    el('content').innerHTML = article.content_html || '';
+    articleSlug = article.slug;
+    currentStatus = article.status;
+    currentPublishedAt = article.published_at;
+    seo = parseStoredSeo(article.seo_json);
+    fillSeoPanel(seo);
+    updateCounts();
+    await loadSiteSeo(session.userId);
+  };
+
+  el('content').addEventListener('input', updateCounts);
+
+  /* ------------------------------------------------------------------ *
+   * Media insertion (spec FR-2). Values are escaped by the builders in
+   * src/lib/media.ts and re-sanitized on save - raw user HTML is never inserted.
+   * ------------------------------------------------------------------ */
+
+  const insertAtCursor = (html: string) => {
+    el('content').focus();
+    document.execCommand('insertHTML', false, html);
+  };
+
+  const insertImage = () => {
+    const url = prompt('Image URL (https://...)');
+    if (!url) return;
+    const alt = prompt('Alt text - describe the image for screen readers (leave blank if decorative)') ?? '';
+    const caption = prompt('Caption (optional - leave blank for no caption)') ?? '';
+    const size = prompt('Intrinsic size as WxH, e.g. 1200x630 (optional - reserves the space and avoids layout shift)') ?? '';
+    const [width, height] = size.split(/[x\u00d7,\s]+/);
+    const html = imageHtml({ src: url, alt, caption, width, height });
+    if (!html) {
+      mediaStatus('That image URL was rejected. Use an absolute http:// or https:// address (data: URLs are not allowed).');
+      return;
+    }
+    insertAtCursor(html);
+    mediaStatus('Image inserted. Use "Save draft" to store it.');
+  };
+
+  const insertVideo = () => {
+    const url = prompt('YouTube or Vimeo link (a normal watch or share URL is fine)');
+    if (!url) return;
+    const embed = parseVideoEmbed(url);
+    if (!embed) {
+      mediaStatus('Only YouTube and Vimeo links can be embedded. That link is not on the provider allow-list, so nothing was inserted.');
+      return;
+    }
+    const title = prompt('Accessible title for the video (leave blank to use "Embedded video")') ?? '';
+    const caption = prompt('Caption (optional)') ?? '';
+    const html = videoEmbedHtml({ embedUrl: embed.embedUrl, title, caption });
+    if (!html) {
+      mediaStatus('That video could not be embedded, so nothing was inserted.');
+      return;
+    }
+    insertAtCursor(html);
+    mediaStatus(`Inserted an embed from ${embed.provider === 'youtube' ? 'YouTube' : 'Vimeo'}: ${embed.embedUrl}`);
+  };
+
+  document.querySelectorAll<HTMLButtonElement>('.fmt').forEach((b) => {
+    b.addEventListener('click', () => {
+      const cmd = b.dataset.cmd ?? '';
+      if (cmd === 'h2' || cmd === 'h3') document.execCommand('formatBlock', false, cmd);
+      else if (cmd === 'link') {
+        const href = prompt('Link URL (https://)');
+        if (href) document.execCommand('createLink', false, href);
+      } else if (cmd === 'code') {
+        document.execCommand('insertHTML', false, '<code>code</code>');
+      } else if (cmd === 'image') {
+        insertImage();
+        return;
+      } else if (cmd === 'video') {
+        insertVideo();
+        return;
+      } else if (cmd) document.execCommand(cmd, false);
+      el('content').focus();
+    });
+  });
+
+  const collectPatch = () => {
+    // Panel values are folded into the stored copy so a save can never drop the
+    // generated strategy fields (h1/outline/faq/internalLinks).
+    seo = applySeoOverrides(seo, readSeoPanel());
+    return {
+      title: input('title-input').value,
+      keyword: input('keyword-input').value,
+      content_html: sanitizeArticleHtml(el('content').innerHTML),
+      seo_json: seo as unknown as Record<string, unknown>
+    };
+  };
+
+  const run = async (busy: string, done: string, action: () => Promise<void>) => {
+    if (!articleId) {
+      status('No article selected. Open an article from the dashboard.');
+      return;
+    }
+    status(busy);
+    try {
+      await action();
+      status(done);
+    } catch (error) {
+      status(errorMessage(error));
+    }
+  };
+
+  el('save-btn').addEventListener('click', () =>
+    void run('Saving...', 'Saved.', async () => {
+      await updateArticle(articleId, collectPatch());
+    })
+  );
+
+  el('publish-btn').addEventListener('click', () =>
+    void run('Publishing...', 'Published. Rebuild the site to see it live.', async () => {
+      await updateArticle(articleId, collectPatch());
+      await changeStatus(articleId, { status: currentStatus, published_at: currentPublishedAt }, 'published');
+      currentStatus = 'published';
+      currentPublishedAt = new Date().toISOString();
+    })
+  );
+
+  el('seo-autogen-btn').addEventListener('click', () =>
+    void run('Generating SEO fields...', 'SEO fields filled. Edit any of them before saving.', async () => {
+      const keyword = input('keyword-input').value.trim();
+      const title = input('title-input').value.trim();
+      if (!keyword && !title) throw new Error('Add a title or a keyword first.');
+      const strategy = await generateStrategy(keyword || title);
+      fillSeoPanel({
+        title: strategy.title,
+        metaDescription: strategy.metaDescription,
+        canonicalPath: `/articles/${articleSlug}/`,
+        ogImage: siteSeo.ogImage,
+        titleSuffix: siteSeo.titleSuffix,
+        twitterHandle: siteSeo.twitterHandle,
+        noindex: false
+      });
+    })
+  );
+
+  let latestStrategy: SeoStrategy | null = null;
+  el('seo-gen-btn').addEventListener('click', () =>
+    void run('Generating strategy...', 'Strategy generated.', async () => {
+      const keyword = input('keyword-input').value;
+      if (!keyword) throw new Error('Enter a keyword first.');
+      const strategy = await generateStrategy(keyword);
+      latestStrategy = strategy;
+      el('seo-result').classList.remove('hidden');
+      el('seo-title').textContent = strategy.title;
+      el('seo-meta').textContent = strategy.metaDescription;
+      el('seo-h1').textContent = strategy.h1;
+      el('seo-outline').innerHTML = strategy.outline
+        .map((h: string) => `<span class="inline-block rounded bg-ink-800 px-2 py-1 m-0.5 text-xs">${h}</span>`)
+        .join('');
+    })
+  );
+
+  el('seo-apply-btn').addEventListener('click', () => {
+    if (!latestStrategy) {
+      status('Generate a strategy first.');
+      return;
+    }
+    void run('Applying strategy...', 'SEO strategy applied to article.', async () => {
+      const applied = latestStrategy as unknown as StoredSeo;
+      // Strategy fields first, then the panel on top: a manual value always wins.
+      seo = applySeoOverrides({ ...seo, ...applied }, readSeoPanel());
+      await updateArticle(articleId, { seo_json: seo as unknown as Record<string, unknown> });
+      fillSeoPanel(seo);
+    });
+  });
+
+  void boot(load);
+</script>

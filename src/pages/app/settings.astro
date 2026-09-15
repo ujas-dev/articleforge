@@ -1,0 +1,126 @@
+---
+import Base from '../../layouts/Base.astro';
+import { sitePath } from '../../lib/site';
+---
+<Base title="Settings | ArticleForge" noindex>
+  <section class="max-w-xl mx-auto reveal">
+    <h1 class="font-display text-3xl font-bold mb-6">Settings</h1>
+    <form id="settings-form" class="space-y-5">
+      <div>
+        <label for="display-name" class="block text-sm font-medium text-ink-300 mb-1">Display name</label>
+        <input id="display-name" required maxlength="80" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" />
+      </div>
+      <div>
+        <label for="site-name" class="block text-sm font-medium text-ink-300 mb-1">Site name</label>
+        <input id="site-name" required maxlength="80" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" />
+      </div>
+      <fieldset class="rounded-2xl border border-ink-700 p-5 space-y-4">
+        <legend class="px-1 text-sm font-semibold text-ink-200">SEO defaults</legend>
+        <p class="text-xs text-ink-500">
+          Applied by "Auto-generate SEO" in the editor. Each article can still be overridden
+          individually from its SEO panel.
+        </p>
+        <div>
+          <label for="seo-og-image" class="block text-sm font-medium text-ink-300 mb-1">Default OG image URL</label>
+          <input id="seo-og-image" maxlength="2048" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="https://example.com/social.png" />
+        </div>
+        <div>
+          <label for="seo-twitter" class="block text-sm font-medium text-ink-300 mb-1">Twitter/X handle</label>
+          <input id="seo-twitter" maxlength="64" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder="@yourhandle" />
+        </div>
+        <div>
+          <label for="seo-title-suffix" class="block text-sm font-medium text-ink-300 mb-1">Title suffix</label>
+          <input id="seo-title-suffix" maxlength="60" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 px-4 py-2.5" placeholder=" | My Site" />
+          <p class="text-xs text-ink-500 mt-1">Appended to every title tag. Include the separator, e.g. " | My Site".</p>
+        </div>
+      </fieldset>
+      <button type="submit" class="rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-5 py-2.5">Save settings</button>
+    </form>
+    <button id="logout-btn" class="mt-8 rounded-xl border border-ink-600 hover:bg-ink-800 px-4 py-2 text-sm">Sign out</button>
+    <p id="settings-status" class="mt-4 text-sm text-ink-500" aria-live="polite"></p>
+    <p class="mt-6 text-xs text-ink-500">
+      Publishing is a rebuild: a published article appears on the public site after the next
+      <a class="underline" href={sitePath('/')}>GitHub Pages</a> build.
+    </p>
+  </section>
+</Base>
+<script>
+  import { requireSession, signOut } from '../../lib/auth';
+  import { getSupabase } from '../../lib/supabase';
+  import { errorMessage } from '../../lib/errors';
+  import { DEFAULT_TITLE_SUFFIX, mergeSiteSeo, parseSiteSeo } from '../../lib/seo-settings';
+
+  const el = (id: string) => document.getElementById(id) as HTMLElement;
+  const input = (id: string) => el(id) as HTMLInputElement;
+  const status = (message: string) => {
+    el('settings-status').textContent = message;
+  };
+
+  /**
+   * `settings_json` is shared with other features, so the row loaded here is
+   * kept and merged on save instead of being replaced wholesale.
+   */
+  let storedSettings: unknown = {};
+
+  /** F14: every Supabase-backed start-up path reports through the live region. */
+  const boot = async (action: (session: { userId: string }) => Promise<void>) => {
+    try {
+      const session = await requireSession();
+      if (!session) return;
+      await action(session);
+    } catch (error) {
+      status(errorMessage(error));
+    }
+  };
+
+  void boot(async (session) => {
+    const { data: profile, error } = await getSupabase()
+      .from('profiles')
+      .select('display_name, site_name, settings_json')
+      .eq('id', session.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    storedSettings = profile?.settings_json ?? {};
+    input('display-name').value = profile?.display_name ?? '';
+    input('site-name').value = profile?.site_name ?? '';
+    const seo = parseSiteSeo(storedSettings);
+    input('seo-og-image').value = seo.ogImage ?? '';
+    input('seo-twitter').value = seo.twitterHandle ?? '';
+    input('seo-title-suffix').value = seo.titleSuffix || DEFAULT_TITLE_SUFFIX;
+  });
+
+  el('settings-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    void boot(async (session) => {
+      status('Saving...');
+      // Values are normalised on the way in (absolute http(s) URL, @handle form,
+      // space-preserving suffix), so an unusable entry is dropped rather than stored.
+      const settingsJson = mergeSiteSeo(storedSettings, {
+        ogImage: input('seo-og-image').value,
+        twitterHandle: input('seo-twitter').value,
+        titleSuffix: input('seo-title-suffix').value
+      });
+      const { error } = await getSupabase()
+        .from('profiles')
+        .upsert({
+          id: session.userId,
+          display_name: input('display-name').value,
+          site_name: input('site-name').value,
+          settings_json: settingsJson
+        });
+      if (error) throw new Error(error.message);
+      storedSettings = settingsJson;
+      // Re-read through the parser so the form shows what was actually stored.
+      const saved = parseSiteSeo(settingsJson);
+      input('seo-og-image').value = saved.ogImage ?? '';
+      input('seo-twitter').value = saved.twitterHandle ?? '';
+      input('seo-title-suffix').value = saved.titleSuffix;
+      status('Saved.');
+    });
+  });
+
+  el('logout-btn').addEventListener('click', () => {
+    status('Signing out...');
+    void signOut().catch((error: unknown) => status(errorMessage(error)));
+  });
+</script>

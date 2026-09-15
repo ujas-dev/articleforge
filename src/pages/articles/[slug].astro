@@ -1,0 +1,105 @@
+---
+import Base from '../../layouts/Base.astro';
+import { fetchPublishedBuild } from '../../lib/supabase';
+import { sanitizeArticleHtml } from '../../lib/sanitize';
+import { resolveSeo } from '../../lib/seo-settings';
+import { articleJsonLd, faqJsonLd, breadcrumbJsonLd } from '../../lib/seo-schema';
+import { absoluteUrl, sitePath } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const articles = (await fetchPublishedBuild()) ?? [];
+  return articles.map((a) => ({ params: { slug: a.slug } }));
+}
+
+const articles = (await fetchPublishedBuild()) ?? [];
+const { slug } = Astro.params;
+const article = articles.find((a) => a.slug === slug);
+if (!article) throw new Error(`Article "${slug}" was not found among the published articles.`);
+
+/**
+ * Manual SEO override (the editor's SEO panel) -> generated strategy ->
+ * heuristic. `resolveSeo` is the single place that rule lives (spec FR-6/FR-10),
+ * so the panel, the preview and this page can never disagree.
+ */
+const seo = resolveSeo({
+  title: article.title,
+  keyword: article.keyword,
+  slug: article.slug,
+  seo: article.seo_json
+});
+const { strategy } = seo;
+// The canonical always goes through site.ts so the deploy sub-path is applied once.
+const canonical = absoluteUrl(seo.canonicalPath);
+
+const safeHtml = sanitizeArticleHtml(article.content_html ?? '');
+const publishedAt = article.published_at ?? article.created_at;
+
+const jsonLd = [
+  articleJsonLd({ title: strategy.title, description: strategy.metaDescription, url: canonical, publishedAt, authorName: 'ArticleForge Author' }),
+  faqJsonLd(strategy.faq),
+  breadcrumbJsonLd([
+    { name: 'Home', url: absoluteUrl('/') },
+    { name: article.title, url: canonical }
+  ])
+];
+---
+<Base
+  title={seo.title}
+  titleSuffix={seo.titleSuffix}
+  description={seo.metaDescription}
+  canonical={canonical}
+  ogImage={seo.ogImage}
+  twitterHandle={seo.twitterHandle}
+  jsonLd={jsonLd}
+  noindex={seo.noindex}
+  ogType="article"
+  publishedTime={publishedAt}
+>
+  <article class="max-w-3xl mx-auto py-10">
+    <nav aria-label="Breadcrumb" class="text-xs text-ink-500 mb-6 reveal">
+      <a href={sitePath('/')} class="hover:text-brand-300">Home</a> / <span>{article.title}</span>
+    </nav>
+    <h1 class="font-display text-3xl sm:text-4xl font-bold reveal reveal-1">{strategy.h1}</h1>
+    <p class="text-ink-500 text-sm mt-3 reveal reveal-2">
+      Published <time datetime={publishedAt}>{new Date(publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+    </p>
+    <div id="article-body" class="prose-article mt-8 reveal reveal-3" set:html={safeHtml} />
+    {strategy.faq.length > 0 && (
+      <div class="prose-article mt-10">
+        <h2 class="font-display text-2xl font-bold">FAQ</h2>
+        {strategy.faq.map((entry) => (
+          <details class="mt-4 rounded-xl border border-ink-700 bg-ink-900/60 p-4">
+            <summary class="font-semibold cursor-pointer">{entry.q}</summary>
+            <p class="mt-2">{entry.a}</p>
+          </details>
+        ))}
+      </div>
+    )}
+  </article>
+  <script is:inline define:vars={{ articleId: article.id, functionsEndpoint: (import.meta.env.PUBLIC_SUPABASE_URL ?? '') + '/functions/v1' }}>
+    (() => {
+      if (!functionsEndpoint) return;
+      const track = { view: 1, scroll_25: 1, scroll_50: 1, scroll_75: 1, scroll_100: 1 };
+      const dnt = navigator.doNotTrack ?? null;
+      const gpc = (typeof navigator.globalPrivacyControl !== 'undefined') ? String(navigator.globalPrivacyControl) : null;
+      const dntOn = dnt === '1' || dnt === 'yes' || gpc === '1' || gpc === 'true';
+      if (dntOn) return;
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const host = (() => { try { return document.referrer ? new URL(document.referrer).hostname : ''; } catch { return ''; } })();
+      const send = (t) => {
+        if (!uuidRe.test(articleId) || !track[t]) return;
+        const body = JSON.stringify({ article_id: articleId, event_type: t, referrer_host: host });
+        if (navigator.sendBeacon) navigator.sendBeacon(functionsEndpoint + '/track', new Blob([body], { type: 'application/json' }));
+        else void fetch(functionsEndpoint + '/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+      };
+      send('view');
+      const seen = new Set();
+      window.addEventListener('scroll', () => {
+        const pct = Math.round(((window.scrollY + window.innerHeight) / document.documentElement.scrollHeight) * 100);
+        for (const d of [25, 50, 75, 100]) {
+          if (pct >= d && !seen.has(d)) { seen.add(d); send('scroll_' + d); }
+        }
+      }, { passive: true });
+    })();
+  </script>
+</Base>

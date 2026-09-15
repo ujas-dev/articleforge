@@ -1,0 +1,14 @@
+# Supabase project configuration.
+#
+# F7: the public article page records analytics with navigator.sendBeacon(),
+# which cannot attach an Authorization header. With the default gateway
+# setting (verify_jwt = true) every beacon is rejected with 401 before it ever
+# reaches the function. `track` is deny-by-default on its own: it accepts only
+# POSTs whose payload validates (allow-listed event type, UUID article id,
+# sanitised referrer host) and it only records events for articles that are
+# already published. Keep verify_jwt = true for everything else.
+[functions.track]
+verify_jwt = false
+
+[functions.seo-gen]
+verify_jwt = true

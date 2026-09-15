@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Sign in">
+  <div class="flex items-center justify-center min-h-[70vh]">
+    <div class="w-full max-w-sm reveal">
+      <h1 class="font-display text-3xl font-bold text-center hero-gradient mb-2">Welcome to ArticleForge</h1>
+      <p class="text-center text-ink-400 mb-8">Sign in to your writing workspace.</p>
+      <div class="space-y-3">
+        <button data-oauth="github" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 hover:bg-ink-800 px-4 py-3 font-medium transition-colors">
+          Continue with GitHub
+        </button>
+        <button data-oauth="google" class="w-full rounded-xl border border-ink-700 bg-ink-900/80 hover:bg-ink-800 px-4 py-3 font-medium transition-colors">
+          Continue with Google
+        </button>
+      </div>
+      <p id="login-status" class="text-xs text-center text-ink-500 mt-6" aria-live="polite">Your data is scoped to your account via row-level security.</p>
+    </div>
+  </div>
+</Base>
+<script>
+  import { signInGitHub, signInGoogle } from '../../lib/auth';
+  import { errorMessage } from '../../lib/errors';
+
+  const status = document.getElementById('login-status') as HTMLElement;
+
+  document.querySelectorAll('[data-oauth]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const provider = (btn as HTMLElement).dataset.oauth;
+      status.textContent = 'Redirecting to your identity provider...';
+      const signIn = provider === 'github' ? signInGitHub() : signInGoogle();
+      signIn.catch((error: unknown) => {
+        status.textContent = errorMessage(error);
+      });
+    });
+  });
+</script>

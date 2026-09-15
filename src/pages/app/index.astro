@@ -1,0 +1,101 @@
+---
+import Base from '../../layouts/Base.astro';
+import { sitePath } from '../../lib/site';
+---
+<Base title="Dashboard" noindex>
+  <section class="flex items-center justify-between mb-8">
+    <div class="reveal">
+      <h1 class="font-display text-3xl font-bold">Your articles</h1>
+      <p class="text-ink-400 text-sm mt-1">Drafts, published pages, and archives in one place.</p>
+    </div>
+    <div class="flex gap-3">
+      <a href={sitePath('/app/new/')} class="rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-4 py-2 transition-colors">New article</a>
+      <a href={sitePath('/app/settings/')} class="rounded-xl border border-ink-700 hover:bg-ink-800 px-4 py-2 transition-colors">Settings</a>
+    </div>
+  </section>
+  <p id="dashboard-status" class="text-ink-500" aria-live="polite">Loading your articles...</p>
+  <ul id="article-list" class="grid gap-4" aria-label="Your articles"></ul>
+</Base>
+<script>
+  import { requireSession } from '../../lib/auth';
+  import { listArticles, softDeleteArticle, changeStatus } from '../../lib/articles';
+  import { errorMessage } from '../../lib/errors';
+  import { escapeHtml } from '../../lib/escape';
+  import { sitePath } from '../../lib/site';
+  import type { ArticleListItem } from '../../lib/articles';
+  import type { ArticleStatus } from '../../lib/article-state';
+
+  const statusEl = document.getElementById('dashboard-status') as HTMLElement;
+  const list = document.getElementById('article-list') as HTMLElement;
+
+  /** F14: every Supabase-backed start-up path reports through the live region. */
+  const boot = async (action: (session: { userId: string }) => Promise<void>) => {
+    try {
+      const session = await requireSession();
+      if (!session) return;
+      await action(session);
+    } catch (error) {
+      statusEl.textContent = errorMessage(error);
+    }
+  };
+
+  const render = async (done?: string) => {
+    let articles: ArticleListItem[];
+    try {
+      articles = await listArticles();
+    } catch (error) {
+      statusEl.textContent = errorMessage(error);
+      return;
+    }
+    if (articles.length === 0) {
+      statusEl.textContent = done ?? 'No articles yet. Create your first one.';
+      list.innerHTML = '';
+      return;
+    }
+    statusEl.textContent = done ?? `${articles.length} article${articles.length === 1 ? '' : 's'}.`;
+    list.innerHTML = articles.map((a) => `
+      <li class="rounded-2xl border border-ink-700 bg-ink-900/60 hover-lift p-5">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <a href="${sitePath('/app/edit/')}?id=${encodeURIComponent(a.id)}" class="font-display text-lg font-semibold hover:text-brand-300">${escapeHtml(a.title)}</a>
+            <p class="text-xs text-ink-500 mt-1">/${escapeHtml(a.slug)} &middot; keyword: ${escapeHtml(a.keyword || '\u2014')} &middot; ${escapeHtml(a.status)}</p>
+          </div>
+          <div class="flex gap-2 text-sm shrink-0">
+            ${a.status === 'draft' ? `<button data-publish="${escapeHtml(a.id)}" class="rounded-lg bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-3 py-1">Publish</button>` : ''}
+            ${a.status === 'published' ? `<a href="${sitePath(`/articles/${a.slug}/`)}" class="rounded-lg border border-ink-600 hover:bg-ink-800 px-3 py-1">View</a>` : ''}
+            <button data-delete="${escapeHtml(a.id)}" class="rounded-lg border border-ink-600 hover:border-red-500 hover:text-red-600 dark:hover:border-red-400 dark:hover:text-red-400 px-3 py-1">Delete</button>
+          </div>
+        </div>
+      </li>
+    `).join('');
+
+    const run = async (busy: string, done: string, action: () => Promise<unknown>) => {
+      statusEl.textContent = busy;
+      try {
+        await action();
+      } catch (error) {
+        statusEl.textContent = errorMessage(error);
+        return;
+      }
+      await render(done);
+    };
+
+    list.querySelectorAll('[data-publish]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const id = (b as HTMLElement).dataset.publish!;
+        const article = articles.find((a) => a.id === id);
+        if (!article) return;
+        void run('Publishing...', 'Published. Rebuild the site to see it live.', () =>
+          changeStatus(id, { status: article.status as ArticleStatus, published_at: article.published_at }, 'published')
+        );
+      });
+    });
+    list.querySelectorAll('[data-delete]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const id = (b as HTMLElement).dataset.delete!;
+        void run('Deleting...', 'Article deleted.', () => softDeleteArticle(id));
+      });
+    });
+  };
+  void boot(() => render());
+</script>

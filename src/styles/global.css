@@ -1,0 +1,392 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens (finding F8).
+ *
+ * The `ink` scale is theme-adaptive and keeps the same *roles* in both themes:
+ *   ink-50   .. ink-700 -> foreground/border ramp (highest -> lowest emphasis)
+ *   ink-800  .. ink-950 -> surface ramp (raised -> recessed)
+ * In the dark theme foregrounds are light greys and surfaces near-black; in the
+ * light theme foregrounds are dark greys and surfaces near-white. Every pair
+ * used for body/muted text meets WCAG 2.2 AA (>= 4.5:1) and every pair used for
+ * control borders meets 1.4.11 (>= 3:1) - asserted by src/lib/theme-contrast.test.ts.
+ */
+:root {
+  color-scheme: light;
+
+  /* foreground / border ramp */
+  --af-ink-50: 10 10 14;
+  --af-ink-100: 18 18 23;
+  --af-ink-200: 43 43 51;
+  --af-ink-300: 76 76 85;
+  --af-ink-400: 93 93 104;
+  --af-ink-500: 107 107 118;
+  --af-ink-600: 126 126 138;
+  --af-ink-700: 131 131 143;
+
+  /* surface ramp */
+  --af-ink-800: 228 228 234;
+  --af-ink-900: 236 236 241;
+  --af-ink-950: 246 246 249;
+
+  /* brand accents that sit on top of text or borders (theme-adaptive) */
+  --af-brand-300: 0 112 138;
+
+  /* static brand colours (identical in both themes) */
+  --af-brand-400: 0 194 224;
+  --af-brand-500: 0 168 198;
+  --af-on-brand: 10 10 14;
+
+  --af-page-bg: #ffffff;
+  --af-page-fg: #2b2b33;
+  --af-glow: rgba(0, 168, 198, 0.1);
+  --af-field: rgba(10, 10, 14, 0.045);
+  --af-focus: #00708a;
+  --af-link: #00708a;
+  --af-link-hover: #005a70;
+  --af-code: #005a70;
+  --af-prose-heading: #121217;
+  --af-prose-body: #33333b;
+  --af-prose-muted: #5d5d68;
+  --af-hero-gradient: linear-gradient(90deg, #00708a, #6d28d9, #008ba5, #00708a);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  /* foreground / border ramp */
+  --af-ink-50: 247 247 248;
+  --af-ink-100: 237 237 240;
+  --af-ink-200: 216 216 221;
+  --af-ink-300: 185 185 194;
+  --af-ink-400: 147 147 159;
+  --af-ink-500: 139 139 151;
+  --af-ink-600: 110 110 122;
+  --af-ink-700: 98 98 109;
+
+  /* surface ramp */
+  --af-ink-800: 51 51 59;
+  --af-ink-900: 18 18 23;
+  --af-ink-950: 10 10 14;
+
+  --af-brand-300: 121 222 255;
+
+  /* Declared here too (identical values) so both themes expose the same tokens. */
+  --af-brand-400: 0 194 224;
+  --af-brand-500: 0 168 198;
+  --af-on-brand: 10 10 14;
+
+  --af-page-bg: #08080b;
+  --af-page-fg: #d8d8dd;
+  --af-glow: rgba(0, 194, 224, 0.13);
+  --af-field: rgba(10, 10, 14, 0.45);
+  --af-focus: #79deff;
+  --af-link: #79deff;
+  --af-link-hover: #b4ecff;
+  --af-code: #79deff;
+  --af-prose-heading: #f7f7f8;
+  --af-prose-body: #d8d8dd;
+  --af-prose-muted: #b9b9c2;
+  --af-hero-gradient: linear-gradient(90deg, #79deff, #8b5cf6, #00c2e0, #79deff);
+}
+
+@layer base {
+  body {
+    background-color: var(--af-page-bg);
+    color: var(--af-page-fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--af-focus);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Visually-hidden until focused; the first focusable element on every page (F9). */
+  .af-skip {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 100;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    background-color: rgb(var(--af-brand-400));
+    color: rgb(var(--af-on-brand));
+    font-weight: 600;
+    transform: translateY(-400%);
+    transition: transform 0.15s ease-out;
+  }
+  .af-skip:focus {
+    transform: translateY(0);
+  }
+
+  .af-header {
+    border-bottom: 1px solid rgb(var(--af-ink-800));
+    /* Opaque fallback first; color-mix is progressive enhancement for the blur. */
+    background-color: var(--af-page-bg);
+    background-color: color-mix(in srgb, var(--af-page-bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  .af-shell {
+    background-image: radial-gradient(ellipse at top, var(--af-glow), transparent 60%);
+  }
+
+  /* Recessed editor surface (was bg-ink-950/40, which only worked in dark mode). */
+  .af-field {
+    background-color: var(--af-field);
+  }
+
+  .af-nav-link {
+    display: inline-block;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.6rem;
+    color: rgb(var(--af-ink-400));
+  }
+  .af-nav-link:hover {
+    background-color: rgb(var(--af-ink-800));
+    color: rgb(var(--af-ink-200));
+  }
+
+  /*
+   * Theme toggle (spec FR-8 / T5.6). The button lives in the header nav; the
+   * icon pair is swapped by CSS off the `dark` class so the click handler only
+   * has to toggle the class and persist the choice - there is no second source
+   * of truth for the current theme.
+   */
+  .af-theme-toggle {
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .af-theme-icon {
+    display: none;
+  }
+  /* Light theme is active -> the button offers dark mode, and vice versa. */
+  .af-theme-icon-moon {
+    display: inline;
+  }
+  html.dark .af-theme-icon-moon {
+    display: none;
+  }
+  html.dark .af-theme-icon-sun {
+    display: inline;
+  }
+
+  /* Decorative hero motion (spec FR-8/T7.2). Radial gradients instead of a
+     blur filter, and only `transform`/`opacity` animate, so the whole thing
+     stays on the compositor. */
+  .af-orb {
+    position: absolute;
+    width: 22rem;
+    height: 22rem;
+    border-radius: 9999px;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 30% 30%, rgb(var(--af-brand-400) / 0.28), transparent 68%);
+    animation: af-float 11s ease-in-out infinite, af-glow 7s ease-in-out infinite;
+  }
+  .af-orb-alt {
+    right: -4rem;
+    width: 17rem;
+    height: 17rem;
+    background-image: radial-gradient(circle at 60% 40%, rgba(139, 92, 246, 0.26), transparent 68%);
+    animation: af-float 8.5s ease-in-out infinite reverse, af-glow 9s ease-in-out infinite;
+  }
+
+  /* Shadow-on-hover via opacity: a box-shadow transition repaints, this does not. */
+  .hover-lift {
+    position: relative;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hover-lift::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: 0 12px 32px rgba(0, 194, 224, 0.14);
+    transition: opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hover-lift:hover {
+    transform: translate3d(0, -4px, 0);
+  }
+  .hover-lift:hover::after {
+    opacity: 1;
+  }
+
+  /* Light sweep across the primary call to action. Pure transform + opacity. */
+  .af-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .af-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background-image: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%);
+    transform: translate3d(-120%, 0, 0);
+  }
+  .af-sheen:hover::after,
+  .af-sheen:focus-visible::after {
+    opacity: 1;
+    transform: translate3d(120%, 0, 0);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s linear;
+  }
+
+  /* Article media (spec FR-2).
+     Intrinsic sizing keeps the reserved box equal to the loaded box: an image
+     with width/height attributes keeps its ratio, and a video embed gets a
+     fixed 16:9 box, so neither can shift the layout (NFR-2: CLS < 0.1). */
+  .prose-article figure {
+    margin: 1.75rem 0;
+  }
+  .prose-article img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1.5rem 0;
+    border-radius: 0.75rem;
+  }
+  .prose-article figure img {
+    margin: 0;
+  }
+  .prose-article figcaption {
+    margin-top: 0.6rem;
+    color: var(--af-prose-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .prose-article iframe {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 0.75rem;
+    background-color: var(--af-field);
+  }
+  .prose-article figure.af-video figcaption {
+    margin-top: 0.75rem;
+  }
+
+  .prose-article h2 {
+    color: var(--af-prose-heading);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.3;
+    margin: 2.25rem 0 0.75rem;
+    scroll-margin-top: 6rem;
+  }
+  .prose-article h3 {
+    color: var(--af-prose-heading);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin: 1.75rem 0 0.5rem;
+    scroll-margin-top: 6rem;
+  }
+  .prose-article p { color: var(--af-prose-body); margin: 1rem 0; line-height: 1.75; }
+  .prose-article ul, .prose-article ol { color: var(--af-prose-body); margin: 1rem 0 1rem 1.5rem; line-height: 1.75; }
+  .prose-article ul { list-style: disc; }
+  .prose-article ol { list-style: decimal; }
+  .prose-article a { color: var(--af-link); text-decoration: underline; text-underline-offset: 3px; }
+  .prose-article a:hover { color: var(--af-link-hover); }
+  .prose-article code {
+    font-family: ui-monospace, monospace;
+    background: rgba(0, 194, 224, 0.1);
+    border: 1px solid rgba(0, 194, 224, 0.25);
+    border-radius: 0.375rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.9em;
+    color: var(--af-code);
+  }
+  .prose-article pre {
+    background: #0a0a0e;
+    border: 1px solid #33333b;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1.25rem 0;
+  }
+  .prose-article pre code { background: transparent; border: none; padding: 0; color: #b9b9c2; }
+  .prose-article blockquote {
+    border-left: 3px solid rgb(var(--af-brand-400));
+    padding-left: 1rem;
+    color: var(--af-prose-muted);
+    font-style: italic;
+    margin: 1.25rem 0;
+  }
+}
+
+/*
+ * Motion (spec FR-8, NFR-6). Every animation below touches `transform` and
+ * `opacity` only, so it runs on the compositor and cannot trigger layout or
+ * paint on the main thread (NFR-2). Nothing here loops on a paint property, and
+ * nothing depends on an animation completing to be readable - the
+ * reduced-motion block at the end resets every one of them.
+ */
+@keyframes af-rise {
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes af-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -18px, 0); }
+}
+@keyframes af-glow {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+.reveal { animation: af-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.reveal-1 { animation-delay: 0.05s; }
+.reveal-2 { animation-delay: 0.15s; }
+.reveal-3 { animation-delay: 0.25s; }
+.reveal-4 { animation-delay: 0.35s; }
+
+/* Static gradient: the earlier version animated `background-position`, which is
+   a paint-only property and forced a repaint on every frame. */
+.hero-gradient {
+  background: var(--af-hero-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Belt and braces: an element must never depend on an animation to become
+     visible, and no decorative motion may survive this preference. */
+  .reveal, .af-orb, .af-sheen::after, .af-skip, .hover-lift, .hover-lift::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .af-orb {
+    opacity: 0.6 !important;
+    transform: none !important;
+  }
+  .hover-lift:hover {
+    transform: none !important;
+  }
+  .af-sheen::after {
+    opacity: 0 !important;
+    transform: none !important;
+  }
+}

@@ -1,0 +1,56 @@
+---
+import Base from '../layouts/Base.astro';
+import { fetchPublishedBuild } from '../lib/supabase';
+import { sitePath } from '../lib/site';
+
+const articles = (await fetchPublishedBuild()) ?? [];
+const featured = articles[0];
+const rest = articles.slice(1, 7);
+---
+<Base>
+  <section class="relative overflow-hidden py-16 text-center">
+    <!-- Decorative only: transform/opacity animation, hidden from assistive tech. -->
+    <div class="af-orb -left-24 -top-20" aria-hidden="true"></div>
+    <div class="af-orb af-orb-alt -top-10" aria-hidden="true"></div>
+    <div class="relative">
+      <p class="text-brand-300 font-mono text-sm tracking-widest uppercase reveal reveal-1">Forge &middot; Optimize &middot; Publish</p>
+      <h1 class="font-display text-4xl sm:text-6xl font-bold mt-4 reveal reveal-2">
+        SEO articles, <span class="hero-gradient">forged right</span>
+      </h1>
+      <p class="max-w-2xl mx-auto text-ink-400 mt-6 text-lg reveal reveal-3">
+        A solo-creator writing workspace with per-keyword SEO strategy, one-click publishing, and a privacy-first analytics dashboard.
+      </p>
+      <div class="flex gap-4 justify-center mt-8 reveal reveal-4">
+        <a href={sitePath('/app/')} class="af-sheen rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-6 py-3 transition-colors">Open the forge</a>
+        {featured && <a href={sitePath(`/articles/${featured.slug}/`)} class="rounded-xl border border-ink-600 hover:bg-ink-800 px-6 py-3">Read latest</a>}
+      </div>
+    </div>
+  </section>
+  {featured && (
+    <section class="py-8">
+      <h2 class="font-display text-2xl font-bold mb-6">Latest article</h2>
+      <a href={sitePath(`/articles/${featured.slug}/`)} class="block rounded-2xl border border-ink-700 bg-ink-900/60 hover-lift p-8">
+        <h3 class="font-display text-2xl font-bold">{featured.title}</h3>
+        <p class="text-ink-400 mt-2">{(featured.seo_json as { metaDescription?: string } | null)?.metaDescription ?? featured.keyword}</p>
+      </a>
+    </section>
+  )}
+  {rest.length > 0 && (
+    <section class="py-8">
+      <h2 class="font-display text-2xl font-bold mb-6">More articles</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {rest.map((a) => (
+          <a href={sitePath(`/articles/${a.slug}/`)} class="rounded-2xl border border-ink-700 bg-ink-900/60 hover-lift p-6">
+            <h3 class="font-display text-lg font-bold">{a.title}</h3>
+            <p class="text-sm text-ink-500 mt-1">{a.keyword}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+  {articles.length === 0 && (
+    <section class="py-8 text-center text-ink-500">
+      <p>No published articles yet &mdash; the forge is warming up.</p>
+    </section>
+  )}
+</Base>

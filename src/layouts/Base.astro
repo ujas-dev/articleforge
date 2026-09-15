@@ -1,0 +1,168 @@
+---
+import '../styles/global.css';
+import { absoluteUrl, absoluteFromPath, sitePath } from '../lib/site';
+
+interface Props {
+  title?: string;
+  /** Appended to `title` for <title>/og:title/twitter:title (spec FR-10 site default). */
+  titleSuffix?: string;
+  description?: string;
+  /** Absolute canonical URL. Defaults to a self-referencing canonical for this page (F17). */
+  canonical?: string;
+  /** Absolute og:image / twitter:image. Falls back to the bundled /og-image.png. */
+  ogImage?: string;
+  /** `@handle` for twitter:site, when the creator has saved one (spec FR-10). */
+  twitterHandle?: string;
+  jsonLd?: string[];
+  noindex?: boolean;
+  /** Open Graph object type; article pages pass 'article' (F17). */
+  ogType?: 'website' | 'article';
+  /** ISO timestamp -> article:published_time, only emitted for og:type=article. */
+  publishedTime?: string;
+}
+const {
+  title = 'ArticleForge',
+  titleSuffix = ' | ArticleForge',
+  description = 'Create, optimize, and publish SEO-optimized articles from one editorial workspace.',
+  canonical = absoluteFromPath(Astro.url.pathname),
+  ogImage,
+  twitterHandle,
+  jsonLd = [],
+  noindex = false,
+  ogType = 'website',
+  publishedTime
+} = Astro.props;
+const siteName = 'ArticleForge';
+// The bare site name is never suffixed with itself.
+const documentTitle = title === siteName ? siteName : `${title}${titleSuffix}`;
+const bundledOgImage = absoluteUrl('/og-image.png');
+const ogImageUrl = ogImage ?? bundledOgImage;
+// Intrinsic dimensions are only known for the bundled image; a creator-supplied
+// og:image must not inherit 1200x630 or crawlers would crop it wrongly.
+const ogImageSize = ogImageUrl === bundledOgImage;
+const navLinks = [
+  { href: sitePath('/'), label: 'Home' },
+  { href: sitePath('/app/'), label: 'Dashboard' },
+  { href: sitePath('/app/analytics/'), label: 'Analytics' },
+  { href: sitePath('/app/settings/'), label: 'Settings' }
+];
+const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pathname === `${href}/`;
+---
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{documentTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+  {noindex && <meta name="robots" content="noindex, nofollow" />}
+  <link rel="sitemap" type="application/xml" title={`${siteName} sitemap`} href={absoluteUrl('/sitemap.xml')} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href={sitePath('/favicon.svg')} type="image/svg+xml" />
+  <meta property="og:site_name" content={siteName} />
+  <meta property="og:title" content={documentTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:type" content={ogType} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImageUrl} />
+  {ogImageSize && <meta property="og:image:width" content="1200" />}
+  {ogImageSize && <meta property="og:image:height" content="630" />}
+  <meta property="og:image:alt" content={`${siteName} - SEO articles, forged right`} />
+  {ogType === 'article' && publishedTime && <meta property="article:published_time" content={publishedTime} />}
+  <meta name="twitter:card" content="summary_large_image" />
+  {twitterHandle && <meta name="twitter:site" content={twitterHandle} />}
+  <meta name="twitter:title" content={documentTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageUrl} />
+  {jsonLd.map((json) => <script type="application/ld+json" is:inline set:html={json} />)}
+  <script is:inline>
+    (() => {
+      // Runs before first paint so there is no theme flash. Storage access is
+      // guarded: a locked-down browser must not stop the theme from applying.
+      let stored = null;
+      try {
+        stored = localStorage.getItem('af-theme');
+      } catch {
+        stored = null;
+      }
+      const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', dark);
+    })();
+  </script>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+  <a class="af-skip" href="#main">Skip to content</a>
+  <div class="af-shell flex-1 flex flex-col min-h-screen">
+    <header class="af-header sticky top-0 z-40">
+      <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 h-16">
+        <a href={sitePath('/')} class="font-display text-lg font-bold tracking-tight">{siteName}</a>
+        <nav aria-label="Main">
+          <ul class="flex items-center gap-1 text-sm">
+            {navLinks.map((link) => (
+              <li>
+                <a
+                  href={link.href}
+                  class="af-nav-link"
+                  aria-current={isCurrent(link.href) ? 'page' : undefined}
+                >{link.label}</a>
+              </li>
+            ))}
+            <li>
+              <button
+                type="button"
+                data-theme-toggle
+                aria-pressed="false"
+                aria-label="Dark theme"
+                title="Switch theme"
+                class="af-nav-link af-theme-toggle"
+              >
+                <span class="af-theme-icon af-theme-icon-moon" aria-hidden="true">&#9789;</span>
+                <span class="af-theme-icon af-theme-icon-sun" aria-hidden="true">&#9788;</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <slot />
+    </main>
+    <footer class="border-t border-ink-800">
+      <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-xs text-ink-500">
+        <p>{siteName} - static site on GitHub Pages, data on Supabase.</p>
+      </div>
+    </footer>
+  </div>
+  <script>
+    /**
+     * Theme toggle (spec FR-8 / T5.6). The state lives in the `dark` class on
+     * <html> (set before first paint by the inline script in <head>) and the
+     * choice is persisted under `af-theme`. The icon pair is swapped by CSS, so
+     * this script only has to keep the button's accessible name in sync.
+     */
+    const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+    const sync = () => {
+      const dark = document.documentElement.classList.contains('dark');
+      toggle?.setAttribute('aria-pressed', String(dark));
+      const action = dark ? 'Switch to light theme' : 'Switch to dark theme';
+      toggle?.setAttribute('aria-label', action);
+      toggle?.setAttribute('title', action);
+    };
+    sync();
+    document.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest?.('[data-theme-toggle]');
+      if (!btn) return;
+      const dark = document.documentElement.classList.toggle('dark');
+      try {
+        localStorage.setItem('af-theme', dark ? 'dark' : 'light');
+      } catch {
+        // Private-mode browsers can refuse storage; the theme still applies.
+      }
+      sync();
+    });
+  </script>
+</body>
+</html>

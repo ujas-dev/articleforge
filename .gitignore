@@ -1,0 +1,21 @@
+﻿# Dependencies
+node_modules/
+
+# Build output
+dist/
+.astro/
+
+# Environment (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Caches and reports
+.cache/
+coverage/
+playwright-report/
+test-results/
+
+# Temporary verification artifacts (removed after local container testing)
+screenshots/
+scripts/smoke.mjs

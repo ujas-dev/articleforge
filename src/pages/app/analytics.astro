@@ -1,0 +1,77 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Analytics" noindex>
+  <section>
+    <h1 class="font-display text-3xl font-bold mb-6 reveal">Analytics</h1>
+    <p id="analytics-status" class="text-sm text-ink-500 mb-8" aria-live="polite">Loading analytics...</p>
+    <div id="stats" class="grid gap-4 sm:grid-cols-3 mb-8"></div>
+    <h2 class="font-display text-xl font-bold mb-3">Views per article</h2>
+    <ul id="views-list" class="grid gap-3"></ul>
+    <h2 class="font-display text-xl font-bold mt-8 mb-3">Top referrers</h2>
+    <ul id="ref-list" class="grid gap-3"></ul>
+    <p class="text-xs text-ink-500 mt-6">Privacy-first: referrers stored as bare hostnames only. DNT/GPC signals are honored and no PII is collected.</p>
+  </section>
+</Base>
+<script>
+  import { requireSession } from '../../lib/auth';
+  import { getSupabase } from '../../lib/supabase';
+  import { errorMessage } from '../../lib/errors';
+  import { escapeHtml } from '../../lib/escape';
+
+  const el = (id: string) => document.getElementById(id) as HTMLElement;
+  const status = (message: string) => {
+    el('analytics-status').textContent = message;
+  };
+
+  void (async () => {
+    try {
+      const session = await requireSession();
+      if (!session) return;
+      const sb = getSupabase();
+      const { data: articles, error: articlesError } = await sb
+        .from('articles')
+        .select('id, title')
+        .is('deleted_at', null);
+      if (articlesError) throw new Error(articlesError.message);
+      const { data: events, error: eventsError } = await sb
+        .from('analytics_events')
+        .select('article_id, event_type, referrer_host');
+      if (eventsError) throw new Error(eventsError.message);
+
+      const rows = events ?? [];
+      const views = rows.filter((e: { event_type: string }) => e.event_type === 'view');
+      const byArticle = new Map<string, number>();
+      for (const v of views) byArticle.set(v.article_id, (byArticle.get(v.article_id) ?? 0) + 1);
+
+      const articleList = articles ?? [];
+      el('views-list').innerHTML = articleList.length
+        ? articleList
+            .map((a: { id: string; title: string }) => `<li class="rounded-xl border border-ink-700 bg-ink-900/60 p-4 flex justify-between"><span>${escapeHtml(a.title)}</span><span class="font-semibold text-brand-300">${byArticle.get(a.id) ?? 0} views</span></li>`)
+            .join('')
+        : '<li class="text-ink-400">No articles yet.</li>';
+
+      const byRef = new Map<string, number>();
+      for (const v of views) {
+        const key = v.referrer_host || 'direct';
+        byRef.set(key, (byRef.get(key) ?? 0) + 1);
+      }
+      const top = [...byRef.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+      el('ref-list').innerHTML = top.length
+        ? top.map(([host, count]) => `<li class="rounded-xl border border-ink-700 bg-ink-900/60 p-4 flex justify-between"><span>${escapeHtml(host)}</span><span class="font-semibold text-brand-300">${count}</span></li>`).join('')
+        : '<li class="text-ink-400">No referrer data yet.</li>';
+
+      const topRef = top[0]?.[0] ?? '\u2014';
+      el('stats').innerHTML = `
+        <div class="rounded-2xl border border-ink-700 bg-ink-900/60 p-5"><p class="text-xs uppercase tracking-wide text-ink-500">Total views</p><p class="font-display text-3xl font-bold mt-1">${views.length}</p></div>
+        <div class="rounded-2xl border border-ink-700 bg-ink-900/60 p-5"><p class="text-xs uppercase tracking-wide text-ink-500">Articles with views</p><p class="font-display text-3xl font-bold mt-1">${byArticle.size}</p></div>
+        <div class="rounded-2xl border border-ink-700 bg-ink-900/60 p-5"><p class="text-xs uppercase tracking-wide text-ink-500">Top referrer</p><p class="font-display text-3xl font-bold mt-1">${escapeHtml(topRef)}</p></div>
+      `;
+      status(views.length === 0 ? 'No analytics events recorded yet.' : '');
+    } catch (error) {
+      status(errorMessage(error));
+      el('views-list').innerHTML = '';
+      el('ref-list').innerHTML = '';
+    }
+  })();
+</script>
