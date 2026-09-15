@@ -23,7 +23,6 @@
     "@astrojs/react": "5.0.0",
     "@supabase/supabase-js": "2.109.0",
     "framer-motion": "13.3.0",
-    "playwright": "^1.63.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "sanitize-html": "2.17.7"
