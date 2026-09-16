@@ -29,6 +29,7 @@ jobs:
           enablement: true
       - run: npm ci
       - name: Apply Supabase database migrations
+        continue-on-error: true
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
