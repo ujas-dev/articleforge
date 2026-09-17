@@ -43,22 +43,32 @@ jobs:
         continue-on-error: true
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
+          PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
+          PGUSER: ${{ secrets.SUPABASE_DB_USER }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "::warning::SUPABASE_DB_URL is not set - skipping database migrations. Add the repository secret to enable them."
+          if [ -z "$SUPABASE_DB_URL" ] && [ -z "$PGHOST" ]; then
+            echo "::warning::No database connection configured - skipping migrations. Set SUPABASE_DB_HOST + SUPABASE_DB_USER + SUPABASE_DB_PASSWORD (recommended) or SUPABASE_DB_URL."
             exit 0
           fi
-          if printf '%s' "$SUPABASE_DB_URL" | grep -q 'db\..*\.supabase\.co'; then
-            echo "::error::SUPABASE_DB_URL uses the Direct connection host (db.<ref>.supabase.co), which is IPv6-only and unreachable from GitHub runners. Use the Session Pooler URI instead - copy it from Supabase > Connect > Session pooler > URI (host ends in .pooler.supabase.com, port 5432)."
-            exit 1
-          fi
-          if [ "$(printf '%s' "$SUPABASE_DB_URL" | tr -cd '@' | wc -c)" -ne 1 ]; then
-            echo "::error::SUPABASE_DB_URL is malformed - it must contain exactly one '@' (the password goes before it, the host after it)."
-            exit 1
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            if printf '%s' "$SUPABASE_DB_URL" | grep -q 'db\..*\.supabase\.co'; then
+              echo "::error::SUPABASE_DB_URL uses the Direct connection host (db.<ref>.supabase.co) which is IPv6-only and unreachable from GitHub runners. Use the Session Pooler host (aws-0-<region>.pooler.supabase.com:5432), or switch to the SUPABASE_DB_HOST/USER/PASSWORD secrets."
+              exit 1
+            fi
+            if [ "$(printf '%s' "$SUPABASE_DB_URL" | tr -cd '@' | wc -c)" -ne 1 ]; then
+              echo "::error::SUPABASE_DB_URL must contain exactly one '@'. If your password contains '@', percent-encode it as %40 - or use the SUPABASE_DB_HOST/USER/PASSWORD secrets instead."
+              exit 1
+            fi
           fi
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
-          psql -w "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            psql -w "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
+          else
+            psql -w -h "$PGHOST" -p "${PGPORT:-5432}" -U "$PGUSER" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
+          fi
       - run: npm run check
       - run: npm run check:functions
       - run: npm run lint
