@@ -39,29 +39,39 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" \
             -d '{"build_type":"workflow"}'
       - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Apply Supabase database migrations
         continue-on-error: true
         env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
           PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
           PGUSER: ${{ secrets.SUPABASE_DB_USER }}
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          echo "::group::Database migration"
+          # Preferred path: the Supabase CLI connects via Supavisor (the pooler),
+          # which is IPv4, so it works from GitHub runners even when the project's
+          # direct host (db.<ref>.supabase.co) is IPv6-only.
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$PGPASSWORD" ]; then
+            echo "Using the Supabase CLI (Supavisor/IPv4)."
+            supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$PGPASSWORD"
+            supabase db push
+            code=$?
+            echo "::endgroup::"
+            exit $code
+          fi
           if [ -z "$SUPABASE_DB_URL" ] && [ -z "$PGHOST" ]; then
-            echo "::warning::No database connection configured - skipping migrations. Set SUPABASE_DB_HOST + SUPABASE_DB_USER + SUPABASE_DB_PASSWORD (recommended) or SUPABASE_DB_URL."
+            echo "::warning::No database secrets configured - skipping migrations. Set SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF + SUPABASE_DB_PASSWORD (recommended)."
+            echo "::endgroup::"
             exit 0
           fi
-          if [ -n "$SUPABASE_DB_URL" ]; then
-            if printf '%s' "$SUPABASE_DB_URL" | grep -q 'db\..*\.supabase\.co'; then
-              echo "::error::SUPABASE_DB_URL uses the Direct connection host (db.<ref>.supabase.co) which is IPv6-only and unreachable from GitHub runners. Use the Session Pooler host (aws-0-<region>.pooler.supabase.com:5432), or switch to the SUPABASE_DB_HOST/USER/PASSWORD secrets."
-              exit 1
-            fi
-            if [ "$(printf '%s' "$SUPABASE_DB_URL" | tr -cd '@' | wc -c)" -ne 1 ]; then
-              echo "::error::SUPABASE_DB_URL must contain exactly one '@'. If your password contains '@', percent-encode it as %40 - or use the SUPABASE_DB_HOST/USER/PASSWORD secrets instead."
-              exit 1
-            fi
-          fi
+          echo "CLI secrets not set - falling back to psql. If this fails with 'Network is unreachable' or an IPv6 address, the host is the Direct connection; use the Session Pooler host instead."
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
           if [ -n "$SUPABASE_DB_URL" ]; then
@@ -69,6 +79,9 @@ jobs:
           else
             psql -w -h "$PGHOST" -p "${PGPORT:-5432}" -U "$PGUSER" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
           fi
+          code=$?
+          echo "::endgroup::"
+          exit $code
       - name: Ensure the default admin user exists
         continue-on-error: true
         env:
