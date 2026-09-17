@@ -1,8 +1,11 @@
 import { getSupabase } from './supabase';
+import { sitePath } from './site';
 
 export function redirectToLogin() {
-  const base = import.meta.env.BASE_URL;
-  window.location.assign(`${base}app/login/`);
+  // sitePath() applies the Astro `base` exactly once. import.meta.env.BASE_URL
+  // has no trailing slash here, so the old `${base}app/login/` produced
+  // "/articleforgeapp/login/" and 404'd (found via a live browser check).
+  window.location.assign(sitePath('/app/login/'));
 }
 
 export async function requireSession(): Promise<{ userId: string } | null> {
@@ -20,14 +23,14 @@ export async function requireSession(): Promise<{ userId: string } | null> {
 export async function signInGitHub() {
   await getSupabase().auth.signInWithOAuth({
     provider: 'github',
-    options: { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}app/` }
+    options: { redirectTo: `${window.location.origin}${sitePath('/app/')}` }
   });
 }
 
 export async function signInGoogle() {
   await getSupabase().auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}app/` }
+    options: { redirectTo: `${window.location.origin}${sitePath('/app/')}` }
   });
 }
 
