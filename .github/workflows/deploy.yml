@@ -48,67 +48,62 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
-          PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
-          PGUSER: ${{ secrets.SUPABASE_DB_USER }}
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGCONNECT_TIMEOUT: "5"
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGCONNECT_TIMEOUT: "8"
         run: |
           echo "::group::Database migration"
-          # Preferred: the Supabase CLI talks to the DB via Supavisor (the pooler),
-          # which is IPv4, so it works from GitHub runners even when the project's
-          # direct host (db.<ref>.supabase.co) is IPv6-only.
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$PGPASSWORD" ]; then
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
             echo "Using the Supabase CLI (Supavisor/IPv4)."
-            supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$PGPASSWORD"
+            supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
             supabase db push
             code=$?
             echo "::endgroup::"
             exit $code
           fi
-          if [ -z "$SUPABASE_DB_URL" ] && [ -z "$PGHOST" ]; then
+          if [ -z "$SUPABASE_DB_URL" ] && [ -z "$SUPABASE_DB_PASSWORD" ]; then
             echo "::warning::No database connection configured - skipping migrations."
             echo "::endgroup::"
             exit 0
           fi
-
-          # Otherwise use psql, but if the host is Supabase's IPv6-only direct host,
-          # rewrite it to the Supavisor pooler (IPv4) and auto-detect the region.
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
 
-          url="$SUPABASE_DB_URL"
-          if [ -z "$url" ] && [ -n "$PGHOST" ]; then
-            url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:${PGPORT:-5432}/postgres"
+          # Supabase's direct host (db.<ref>.supabase.co) is IPv6-only and GitHub
+          # runners are IPv4, so connect through the Supavisor pooler. The DB
+          # password may contain '@' (which breaks URLs), so it is passed via
+          # PGPASSWORD and never placed in a URL.
+          ref=""
+          pass="$SUPABASE_DB_PASSWORD"
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            ref=$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's#^.*@db\.([a-z0-9-]+)\.supabase\.co.*$#\1#')
+            if [ -z "$pass" ]; then
+              pass=$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's#^[a-zA-Z]+://[^:]*:(([^@]|@[^@])*)@[^@]*$#\1#')
+            fi
           fi
-
-          is_direct=0
-          printf '%s' "$url" | grep -q 'db\..*\.supabase\.co' && is_direct=1
-          if [ "$is_direct" = "1" ]; then
-            ref=$(printf '%s' "$url" | sed -E 's#.*@db\.([a-z0-9-]+)\.supabase\.co.*#\1#')
-            stem=$(printf '%s' "$url" | sed -E 's#(://)postgres([:.@])#\1postgres.'"$ref"'\2#' | sed -E 's#@db\.[a-z0-9-]+\.supabase\.co(:[0-9]+)?#@POOLERHOST:5432#')
-            echo "Host is the IPv6-only direct host; using the Supavisor pooler (ref=$ref)."
-            for region in us-east-1 us-east-2 us-west-1 us-west-2 ca-central-1 eu-west-1 eu-west-2 eu-west-3 eu-central-1 eu-central-2 eu-north-1 ap-south-1 ap-southeast-1 ap-southeast-2 ap-northeast-1 ap-northeast-2 ap-northeast-3 sa-east-1; do
-              for pfx in aws-0 aws-1; do
-                host="$pfx-$region.pooler.supabase.com"
-                cand=$(printf '%s' "$stem" | sed "s#POOLERHOST#$host#")
-                if psql -w "$cand" -c 'select 1' >/dev/null 2>&1; then
-                  echo "Connected via $host - applying migrations."
-                  psql -w "$cand" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
-                  code=$?
-                  echo "::endgroup::"
-                  exit $code
-                fi
-              done
-            done
-            echo "::error::Could not reach the database via any Supavisor pooler region. Check the DB password and project."
+          if [ -z "$ref" ]; then
+            ref="$SUPABASE_PROJECT_REF"
+          fi
+          if [ -z "$ref" ] || [ -z "$pass" ]; then
+            echo "::error::Could not determine the project ref or DB password. Set SUPABASE_DB_URL, or SUPABASE_PROJECT_REF + SUPABASE_DB_PASSWORD."
             echo "::endgroup::"
             exit 1
           fi
-          psql -w "$url" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
-          code=$?
+
+          for region in ap-southeast-1 ap-south-1 ap-southeast-2 ap-northeast-1 ap-northeast-2 ap-northeast-3 us-east-1 us-east-2 us-west-1 us-west-2 ca-central-1 eu-west-1 eu-west-2 eu-west-3 eu-central-1 eu-central-2 eu-north-1 sa-east-1; do
+            for pfx in aws-0 aws-1; do
+              host="$pfx-$region.pooler.supabase.com"
+              if PGPASSWORD="$pass" psql -w -h "$host" -U "postgres.$ref" -d postgres -c 'select 1' >/dev/null 2>&1; then
+                echo "Connected via $host - applying migrations."
+                PGPASSWORD="$pass" psql -w -h "$host" -U "postgres.$ref" -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
+                code=$?
+                echo "::endgroup::"
+                exit $code
+              fi
+            done
+          done
+          echo "::error::Could not reach the database via any Supavisor pooler host. Check the DB password and project ref."
           echo "::endgroup::"
-          exit $code
+          exit 1
       - name: Ensure the default admin user exists
         continue-on-error: true
         env:
