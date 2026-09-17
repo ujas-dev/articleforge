@@ -89,3 +89,19 @@ workflow) renders its public page and sitemap entry.
 - Article HTML is sanitized both on save (editor) and at render time (build)
 - JSON-LD is serialized with `<` escaped to `\u003c` so stored content cannot break out of the inline `<script>` element
 - No secrets in code; `.env*` is git-ignored and examples use placeholders
+
+
+## Admin sign-in
+
+The owner signs in either with **GitHub / Google OAuth** (the account is created
+on first sign-in - no separate registration), or with the **email + password** form
+on /app/login/. The deploy workflow ensures a default admin user exists, using
+these repository secrets:
+
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service-role key (Project Settings -> API)
+- `ADMIN_EMAIL` - the admin account email
+- `ADMIN_PASSWORD` - a strong password for that account
+- `PUBLIC_SUPABASE_URL` - the project URL
+
+If they are absent the step is skipped and the deploy still succeeds. Rotate
+`ADMIN_PASSWORD` if it has ever been exposed.

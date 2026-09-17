@@ -34,6 +34,12 @@ export async function signInGoogle() {
   });
 }
 
+/** Email + password sign-in, used by the pre-created admin account. */
+export async function signInWithPassword(email: string, password: string) {
+  const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+}
+
 export async function signOut() {
   await getSupabase().auth.signOut();
   redirectToLogin();

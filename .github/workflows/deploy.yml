@@ -69,6 +69,28 @@ jobs:
           else
             psql -w -h "$PGHOST" -p "${PGPORT:-5432}" -U "$PGUSER" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
           fi
+      - name: Ensure the default admin user exists
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SERVICE_KEY" ] || [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASSWORD" ]; then
+            echo "::warning::Admin user not ensured - set PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAIL and ADMIN_PASSWORD."
+            exit 0
+          fi
+          code=$(curl -s -o /tmp/admin.json -w "%{http_code}" -X POST "$SUPABASE_URL/auth/v1/admin/users" \
+            -H "apikey: $SERVICE_KEY" -H "Authorization: Bearer $SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\",\"email_confirm\":true}")
+          echo "admin user create -> HTTP $code"
+          cat /tmp/admin.json
+          if [ "$code" != "200" ] && [ "$code" != "422" ]; then
+            echo "::error::Failed to create or find the admin user (HTTP $code)."
+            exit 1
+          fi
       - run: npm run check
       - run: npm run check:functions
       - run: npm run lint
