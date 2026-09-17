@@ -30,7 +30,7 @@ jobs:
       - name: Ensure Pages uses the GitHub Actions build source
         continue-on-error: true
         env:
-          GH_TOKEN: *** secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           curl -s -o /dev/null -w "pages source PUT -> %{http_code}\n" -X PUT \
             -H "Authorization: Bearer $GH_TOKEN" \
@@ -70,7 +70,7 @@ jobs:
           # from astro.config.mjs `base`. Do not append the repo name here.
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: *** secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
