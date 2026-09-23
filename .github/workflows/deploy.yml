@@ -42,6 +42,36 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Diagnose Supabase secret presence (lengths only, no values)
+        # Runs FIRST so we see which secrets are missing before any Supabase
+        # process (migrations, admin user, function deploy) tries to use them.
+        # `if: always()` keeps it visible even if an earlier step fails.
+        if: always()
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          echo "::group::Secret diagnostic"
+          # Print only the length of each secret, never the value. Empty values
+          # are reported as ::error:: so they show up in the GitHub UI.
+          for v in SUPABASE_PROJECT_REF SUPABASE_DB_URL SUPABASE_DB_PASSWORD SUPABASE_ACCESS_TOKEN PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ADMIN_EMAIL ADMIN_PASSWORD; do
+            eval "val=\$$v"
+            if [ -z "$val" ]; then
+              echo "::error::$v is EMPTY"
+            else
+              # Detect trailing whitespace/newlines which break bash variable use.
+              trimmed_len=$(printf '%s' "$val" | sed 's/[[:space:]]*$//' | wc -c | tr -d ' ')
+              echo "$v -> set (raw_len=${#val}, trimmed_len=$trimmed_len)"
+            fi
+          done
+          echo "::endgroup::"
       - name: Apply Supabase database migrations
         continue-on-error: true
         env:
@@ -141,32 +171,48 @@ jobs:
             echo "::error::Failed to create or find the admin user (HTTP $code)."
             exit 1
           fi
-      - name: Diagnose Supabase secret presence (lengths only, no values)
-        if: always()
+      - name: Deploy Supabase Edge Functions
+        # Deploy every function under supabase/functions/ so the live URL matches
+        # what the browser is calling. Without this step the function only exists
+        # in the repo, and calls return 404 NOT_FOUND (which the browser reports
+        # as a CORS preflight failure).
         env:
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
-          echo "::group::Secret diagnostic"
-          # Print only the length of each secret, never the value. Empty values
-          # are reported as ::error:: so they show up in the GitHub UI.
-          for v in SUPABASE_PROJECT_REF SUPABASE_DB_URL SUPABASE_DB_PASSWORD SUPABASE_ACCESS_TOKEN PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ADMIN_EMAIL ADMIN_PASSWORD; do
-            eval "val=\$$v"
-            if [ -z "$val" ]; then
-              echo "::error::$v is EMPTY"
+          echo "::group::Edge Function deploy"
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::warning::Edge Functions not deployed - set SUPABASE_PROJECT_REF and SUPABASE_ACCESS_TOKEN."
+            echo "::endgroup::"
+            exit 0
+          fi
+          # Link first so the deploy targets the right project.
+          if ! supabase link --project-ref "$SUPABASE_PROJECT_REF" >/dev/null 2>&1; then
+            echo "::error::supabase link failed (check SUPABASE_PROJECT_REF / SUPABASE_ACCESS_TOKEN)."
+            echo "::endgroup::"
+            exit 1
+          fi
+          # Deploy each function explicitly. Glob `supabase/functions/*/index.ts`
+          # so any new function picked up automatically without editing this step.
+          shopt -s nullglob
+          failed=()
+          for fn_dir in supabase/functions/*/; do
+            fn="${fn_dir%/}"
+            fn="${fn##*/}"
+            [ -f "$fn_dir/index.ts" ] || continue
+            echo "Deploying $fn ..."
+            if supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt false; then
+              echo "  -> $fn deployed"
             else
-              # Detect trailing whitespace/newlines which break bash variable use.
-              trimmed_len=$(printf '%s' "$val" | sed 's/[[:space:]]*$//' | wc -c | tr -d ' ')
-              echo "$v -> set (raw_len=${#val}, trimmed_len=$trimmed_len)"
+              echo "::error::$fn deploy failed"
+              failed+=("$fn")
             fi
           done
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::Failed to deploy: ${failed[*]}"
+            echo "::endgroup::"
+            exit 1
+          fi
           echo "::endgroup::"
       - run: npm run check
         env:
