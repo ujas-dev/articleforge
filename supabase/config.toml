@@ -11,4 +11,4 @@
 verify_jwt = false
 
 [functions.seo-gen]
-verify_jwt = true
+verify_jwt = false
