@@ -141,6 +141,33 @@ jobs:
             echo "::error::Failed to create or find the admin user (HTTP $code)."
             exit 1
           fi
+      - name: Diagnose Supabase secret presence (lengths only, no values)
+        if: always()
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          echo "::group::Secret diagnostic"
+          # Print only the length of each secret, never the value. Empty values
+          # are reported as ::error:: so they show up in the GitHub UI.
+          for v in SUPABASE_PROJECT_REF SUPABASE_DB_URL SUPABASE_DB_PASSWORD SUPABASE_ACCESS_TOKEN PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ADMIN_EMAIL ADMIN_PASSWORD; do
+            eval "val=\$$v"
+            if [ -z "$val" ]; then
+              echo "::error::$v is EMPTY"
+            else
+              # Detect trailing whitespace/newlines which break bash variable use.
+              trimmed_len=$(printf '%s' "$val" | sed 's/[[:space:]]*$//' | wc -c | tr -d ' ')
+              echo "$v -> set (raw_len=${#val}, trimmed_len=$trimmed_len)"
+            fi
+          done
+          echo "::endgroup::"
       - run: npm run check
       - run: npm run check:functions
       - run: npm run lint
