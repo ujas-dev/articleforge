@@ -52,6 +52,7 @@ jobs:
           PGCONNECT_TIMEOUT: "8"
         run: |
           echo "::group::Database migration"
+          # Prefer the Supabase CLI when all three of its inputs are present.
           if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
             echo "Using the Supabase CLI (Supavisor/IPv4)."
             supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
@@ -60,8 +61,22 @@ jobs:
             echo "::endgroup::"
             exit $code
           fi
-          if [ -z "$SUPABASE_DB_URL" ] && [ -z "$SUPABASE_DB_PASSWORD" ]; then
+          # Nothing useful configured -> warn and skip without erroring the job.
+          if [ -z "$SUPABASE_DB_URL" ] && [ -z "$SUPABASE_DB_PASSWORD" ] && [ -z "$SUPABASE_PROJECT_REF" ]; then
             echo "::warning::No database connection configured - skipping migrations."
+            echo "::endgroup::"
+            exit 0
+          fi
+          # Partial configuration -> print exactly which secret is missing so the
+          # reader knows what to add in repo Settings -> Secrets and variables.
+          missing=()
+          [ -z "$SUPABASE_DB_URL" ] && [ -z "$SUPABASE_PROJECT_REF" ] && missing+=("SUPABASE_PROJECT_REF (or SUPABASE_DB_URL containing it)")
+          [ -z "$SUPABASE_DB_URL" ] && [ -z "$SUPABASE_DB_PASSWORD" ] && missing+=("SUPABASE_DB_PASSWORD (or SUPABASE_DB_URL containing it)")
+          if [ ${#missing[@]} -gt 0 ]; then
+            printf "::warning::Database migration skipped - missing required secret(s):\n"
+            for m in "${missing[@]}"; do
+              printf "  - %s\n" "$m"
+            done
             echo "::endgroup::"
             exit 0
           fi
