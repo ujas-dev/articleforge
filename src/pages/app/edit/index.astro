@@ -8,7 +8,7 @@ import { sitePath } from '../../../lib/site';
       <a href={sitePath('/app/')} class="text-sm text-ink-400 hover:text-ink-200">&larr; Dashboard</a>
       <div class="flex gap-2">
         <button id="save-btn" class="rounded-xl border border-ink-600 hover:bg-ink-800 px-4 py-2 text-sm">Save draft</button>
-        <button id="publish-btn" class="rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-4 py-2 text-sm">Publish</button>
+        <button id="publish-btn" class="rounded-xl bg-brand-400 hover:bg-brand-500 text-on-brand font-semibold px-4 py-2 text-sm disabled:opacity-60" data-default-label="Publish" aria-live="polite">Publish</button>
       </div>
     </div>
     <div id="editor-shell" class="rounded-2xl border border-ink-700 bg-ink-900/60 p-6">
@@ -125,13 +125,35 @@ import { sitePath } from '../../../lib/site';
     el('media-status').textContent = message;
   };
 
+  /**
+   * Reflect the current state of a long-running action on the button itself.
+   * The status line at the bottom of the page is easy to miss when the user
+   * is scrolled to the editor toolbar, so the button shows its own progress
+   * (and is disabled while the request is in flight, so a double-click
+   * cannot fire a second publish).
+   */
+  const setButtonBusy = (button: HTMLButtonElement, busy: string) => {
+    button.disabled = true;
+    button.textContent = busy;
+  };
+  const resetButton = (button: HTMLButtonElement) => {
+    button.disabled = false;
+    button.textContent = button.dataset.defaultLabel ?? button.textContent ?? '';
+  };
+
   /** F14: every Supabase-backed start-up path reports through the live region. */
   const boot = async (action: (session: { userId: string }) => Promise<void>) => {
     try {
       const session = await requireSession();
-      if (!session) return;
+      if (!session) {
+        console.info('[editor] no session - redirected to sign-in');
+        return;
+      }
+      console.info('[editor] session userId=', session.userId, 'articleId=', articleIdFromQuery() || '(none)');
       await action(session);
+      console.info('[editor] load complete; currentStatus=', currentStatus, 'articleId=', articleId);
     } catch (error) {
+      console.error('[editor] boot failed', error);
       status(errorMessage(error));
     }
   };
@@ -334,20 +356,51 @@ import { sitePath } from '../../../lib/site';
     }
   };
 
-  el('save-btn').addEventListener('click', () =>
+  el('save-btn').addEventListener('click', () => {
+    const btn = input('save-btn') as HTMLButtonElement;
     void run('Saving...', 'Saved.', async () => {
-      await updateArticle(articleId, collectPatch());
-    })
-  );
+      setButtonBusy(btn, 'Saving...');
+      try {
+        await updateArticle(articleId, collectPatch());
+      } finally {
+        resetButton(btn);
+      }
+    });
+  });
 
-  el('publish-btn').addEventListener('click', () =>
+  el('publish-btn').addEventListener('click', () => {
+    const btn = input('publish-btn') as HTMLButtonElement;
+    // Guard: refuse to run when no article is loaded. Without this guard a stale
+    // page (e.g. user navigated away from a draft) silently bails in `run()`
+    // and the user sees no feedback at all from the button.
+    if (!articleId) {
+      status('No article selected. Open an article from the dashboard.');
+      window.alert('No article is open. Pick an article from the dashboard and try again.');
+      return;
+    }
     void run('Publishing...', 'Published. Rebuild the site to see it live.', async () => {
-      await updateArticle(articleId, collectPatch());
-      await changeStatus(articleId, { status: currentStatus, published_at: currentPublishedAt }, 'published');
-      currentStatus = 'published';
-      currentPublishedAt = new Date().toISOString();
-    })
-  );
+      setButtonBusy(btn, 'Publishing...');
+      // Supabase returns RLS-hidden rows as zero matches; the SDK surfaces that
+      // as `PGRST116` from .single(). We log so the failure is debuggable from
+      // DevTools, and we also surface it via the status line + an alert so the
+      // user cannot miss it.
+      try {
+        await updateArticle(articleId, collectPatch());
+        await changeStatus(
+          articleId,
+          { status: currentStatus, published_at: currentPublishedAt },
+          'published'
+        );
+        currentStatus = 'published';
+        currentPublishedAt = new Date().toISOString();
+      } catch (err) {
+        console.error('[publish] failed', err);
+        throw err;
+      } finally {
+        resetButton(btn);
+      }
+    });
+  });
 
   el('seo-autogen-btn').addEventListener('click', () =>
     void run('Generating SEO fields...', 'SEO fields filled. Edit any of them before saving.', async () => {
