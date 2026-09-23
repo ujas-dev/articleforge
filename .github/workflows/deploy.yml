@@ -169,12 +169,20 @@ jobs:
           done
           echo "::endgroup::"
       - run: npm run check
+        env:
+          PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
       - run: npm run check:functions
       - run: npm run lint
       - run: npm run test
       - run: npm run audit
       - run: npm run build
         env:
+          # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
+          # The deploy workflow sets this so a misconfigured deploy cannot publish
+          # an empty site.
+          PUBLIC_ENV_STRICT: "1"
           # PUBLIC_SITE_URL is an ORIGIN ONLY - the /articleforge sub-path comes
           # from astro.config.mjs `base`. Do not append the repo name here.
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
