@@ -13,6 +13,7 @@ const BASE_PATH = '/articleforge';
 const REQUIRED_PUBLIC_ENV = ['PUBLIC_SITE_URL', 'PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_ANON_KEY'];
 
 const mode = process.env.NODE_ENV === 'development' ? 'development' : 'production';
+  // Build trigger: 20260927214657;
 const fileEnv = loadEnv(mode, process.cwd(), '');
 const publicEnv = { ...fileEnv, ...process.env };
 
