@@ -223,6 +223,14 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run audit
+      - name: Debug Node.js version
+        run: node --version && npm --version
+      - name: Debug Astro version
+        run: npx astro --version
+      - name: Debug env vars
+        run: echo "PUBLIC_ENV_STRICT=$PUBLIC_ENV_STRICT" && echo "PUBLIC_SITE_URL=$PUBLIC_SITE_URL" && echo "PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL" && echo "PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY:0:20}..."
+      - name: Debug node_modules
+        run: ls -la node_modules/.bin/ | head -20
       - run: npm run build
         env:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
