@@ -42,5 +42,12 @@ export default [
     languageOptions: {
       globals: { ...globals.node }
     }
+  },
+  {
+    // Allow _ prefixed variables to be intentionally unused (ESLint convention)
+    files: ['**/*.{ts,tsx,js,mjs,cjs,astro}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^_' }]
+    }
   }
 ];
