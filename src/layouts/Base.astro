@@ -88,7 +88,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       let stored = null;
       try {
         stored = localStorage.getItem('af-theme');
-      } catch (err) {
+      } catch {
         stored = null;
       }
       const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -209,7 +209,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
               await signOut();
             });
           }
-        } catch (err) {
+        } catch {
           // If session check fails, treat as logged out
           console.warn('Auth check failed:', err);
           if (authGatedLinks) authGatedLinks.style.display = 'none';
