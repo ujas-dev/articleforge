@@ -25,7 +25,7 @@ async function generateWithOpenAI(keyword: string, apiKey: string): Promise<unkn
     const content = json.choices?.[0]?.message?.content;
     if (!content) return null;
     return JSON.parse(content);
-  } catch {
+  } catch (_) {
     return null;
   }
 }
@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
   let body: { keyword?: unknown; article_id?: unknown };
   try {
     body = await req.json();
-  } catch {
+  } catch (_) {
     return new Response(JSON.stringify({ error: 'invalid body' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } });
   }
   const keyword = typeof body.keyword === 'string' ? body.keyword.trim().slice(0, 100) : '';

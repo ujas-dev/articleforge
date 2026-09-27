@@ -26,7 +26,7 @@ export function buildTrackPayload(
   let referrer_host = '';
   try {
     referrer_host = referrer ? new URL(referrer).hostname.replace(/[^a-z0-9.-]/gi, '').slice(0, 100) : '';
-  } catch {
+  } catch (_) {
     referrer_host = '';
   }
   return { article_id: articleId, event_type: eventType as TrackEventType, referrer_host };

@@ -94,7 +94,7 @@ export function parseVideoEmbed(raw: unknown): VideoEmbed | null {
   let url: URL;
   try {
     url = new URL(trimmed);
-  } catch {
+  } catch (_) {
     // No scheme at all ("youtu.be/x") is not a link we will guess about.
     return null;
   }
@@ -121,7 +121,7 @@ function allowedEmbedUrl(raw: unknown): string | null {
   let url: URL;
   try {
     url = new URL(raw.trim());
-  } catch {
+  } catch (_) {
     return null;
   }
   if (url.protocol !== 'https:') return null;
@@ -145,7 +145,7 @@ export function safeImageSrc(raw: unknown): string | null {
   let url: URL;
   try {
     url = new URL(trimmed);
-  } catch {
+  } catch (_) {
     return null;
   }
   return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;

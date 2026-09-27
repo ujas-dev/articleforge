@@ -16,7 +16,7 @@ Deno.serve(async (req: Request) => {
   let body: { article_id?: unknown; event_type?: unknown; referrer_host?: unknown };
   try {
     body = await req.json();
-  } catch {
+  } catch (_) {
     return new Response(null, { status: 400, headers: CORS });
   }
 

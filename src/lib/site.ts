@@ -14,7 +14,7 @@ function toOrigin(raw: string | undefined): string {
   if (!raw) return DEFAULT_SITE_ORIGIN;
   try {
     return new URL(raw).origin;
-  } catch {
+  } catch (_) {
     return DEFAULT_SITE_ORIGIN;
   }
 }

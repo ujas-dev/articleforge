@@ -85,7 +85,7 @@ const jsonLd = [
       const dntOn = dnt === '1' || dnt === 'yes' || gpc === '1' || gpc === 'true';
       if (dntOn) return;
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const host = (() => { try { return document.referrer ? new URL(document.referrer).hostname : ''; } catch { return ''; } })();
+      const host = (() => { try { return document.referrer ? new URL(document.referrer).hostname : ''; } catch (_) { return ''; } })();
       const send = (t) => {
         if (!uuidRe.test(articleId) || !track[t]) return;
         const body = JSON.stringify({ article_id: articleId, event_type: t, referrer_host: host });

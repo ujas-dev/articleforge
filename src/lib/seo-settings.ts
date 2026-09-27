@@ -83,7 +83,7 @@ export function normaliseOgImage(value: unknown): string | undefined {
     const url = new URL(trimmed);
     if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
     return url.toString();
-  } catch {
+  } catch (_) {
     return undefined;
   }
 }
@@ -106,7 +106,7 @@ export function normaliseCanonicalPath(value: unknown): string | undefined {
       const url = new URL(raw);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
       raw = `${url.pathname}${url.search}${url.hash}`;
-    } catch {
+    } catch (_) {
       return undefined;
     }
   }

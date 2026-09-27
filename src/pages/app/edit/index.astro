@@ -239,7 +239,7 @@ import { sitePath } from '../../../lib/site';
         if (!error && data && typeof data === 'object' && 'strategy' in data) {
           return (data as { strategy: SeoStrategy }).strategy;
         }
-      } catch {
+      } catch (_) {
         // Offline or Edge Function unavailable - fall back to the shared heuristic.
       }
     }
