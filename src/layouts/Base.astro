@@ -88,7 +88,8 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       let stored = null;
       try {
         stored = localStorage.getItem('af-theme');
-      } catch (_e) { void _e; }
+      } catch (e) {
+        void e;
         stored = null;
       }
       const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -178,7 +179,8 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       const dark = document.documentElement.classList.toggle('dark');
       try {
         localStorage.setItem('af-theme', dark ? 'dark' : 'light');
-      } catch (_e) { void _e; }
+      } catch (e) {
+        void e;
         // Private-mode browsers can refuse storage; the theme still applies.
       }
       sync();
@@ -209,7 +211,8 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
               await signOut();
             });
           }
-        } catch (_e) { void _e; }
+        } catch (e) {
+          void e;
           // If session check fails, treat as logged out
           console.warn('Auth check failed');
           if (authGatedLinks) authGatedLinks.style.display = 'none';
