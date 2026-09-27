@@ -214,44 +214,21 @@ jobs:
             exit 1
           fi
           echo "::endgroup::"
-      - run: set -x && npm run check
+      - run: npm run check
         env:
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-      - run: set -x && npm run check:functions
-      - run: set -x && npm run lint
+      - run: npm run check:functions
+      - run: npm run lint
       - run: npm run test
       - run: npm run audit
-      - name: Debug Node.js version
-        run: node --version && npm --version
-      - name: Debug Astro version
-        run: npx astro --version
-      - name: Debug env vars
-        run: echo "PUBLIC_ENV_STRICT=$PUBLIC_ENV_STRICT" && echo "PUBLIC_SITE_URL=$PUBLIC_SITE_URL" && echo "PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL" && echo "PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY:0:20}..."
-      - name: Debug node_modules
-        run: ls -la node_modules/.bin/ | head -20
-      - name: Run build and capture output
-        run: |
-          npm run build 2>&1 | tee /tmp/build-output.log
-          BUILD_EXIT_CODE=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT_CODE"
-          if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "Build failed with exit code $BUILD_EXIT_CODE"
-            cat /tmp/build-output.log
-            exit $BUILD_EXIT_CODE
-          fi
-      - name: Upload build output
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: build-output
-          path: /tmp/build-output.log
+      - run: npm run build
         env:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
           # The deploy workflow sets this so a misconfigured deploy cannot publish
           # an empty site.
-          PUBLIC_ENV_STRICT: "0"
+          PUBLIC_ENV_STRICT: "1"
           # PUBLIC_SITE_URL is an ORIGIN ONLY - the /articleforge sub-path comes
           # from astro.config.mjs `base`. Do not append the repo name here.
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
