@@ -40,12 +40,15 @@ const ogImageUrl = ogImage ?? bundledOgImage;
 // Intrinsic dimensions are only known for the bundled image; a creator-supplied
 // og:image must not inherit 1200x630 or crawlers would crop it wrongly.
 const ogImageSize = ogImageUrl === bundledOgImage;
-const navLinks = [
+const allNavLinks = [
   { href: sitePath('/'), label: 'Home' },
   { href: sitePath('/app/'), label: 'Dashboard' },
   { href: sitePath('/app/analytics/'), label: 'Analytics' },
   { href: sitePath('/app/settings/'), label: 'Settings' }
 ];
+const authGatedLabels = new Set(['Dashboard', 'Analytics', 'Settings']);
+const publicNavLinks = allNavLinks.filter((l) => !authGatedLabels.has(l.label));
+const authNavLinks = allNavLinks.filter((l) => authGatedLabels.has(l.label));
 const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pathname === `${href}/`;
 ---
 <!doctype html>
@@ -101,7 +104,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
         <a href={sitePath('/')} class="font-display text-lg font-bold tracking-tight">{siteName}</a>
         <nav aria-label="Main">
           <ul class="flex items-center gap-1 text-sm">
-            {navLinks.map((link) => (
+            {publicNavLinks.map((link) => (
               <li>
                 <a
                   href={link.href}
@@ -110,6 +113,23 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
                 >{link.label}</a>
               </li>
             ))}
+            <li id="auth-gated-links" style="display:none">
+              {authNavLinks.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    class="af-nav-link"
+                    aria-current={isCurrent(link.href) ? 'page' : undefined}
+                  >{link.label}</a>
+                </li>
+              ))}
+            </li>
+            <li id="auth-signin-link">
+              <a href={sitePath('/app/login/')} class="af-nav-link">Sign in</a>
+            </li>
+            <li id="auth-signout-link" style="display:none">
+              <button type="button" data-signout class="af-nav-link">Sign out</button>
+            </li>
             <li>
               <button
                 type="button"
@@ -163,6 +183,44 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       }
       sync();
     });
+
+    // Handle auth state for nav links and sign-in/out buttons
+    (async () => {
+      const { requireSession } = await import('../lib/auth.js');
+      const { signOut } = await import('../lib/auth.js');
+
+      const authGatedLinks = document.getElementById('auth-gated-links');
+      const authSigninLink = document.getElementById('auth-signin-link');
+      const authSignoutLink = document.getElementById('auth-signout-link');
+      const signoutBtn = document.querySelector('[data-signout]');
+
+      const syncAuthUI = async () => {
+        try {
+          const session = await requireSession();
+          const isLoggedIn = !!session;
+
+          // Show/hide auth-gated links
+          if (authGatedLinks) authGatedLinks.style.display = isLoggedIn ? 'block' : 'none';
+          if (authSigninLink) authSigninLink.style.display = isLoggedIn ? 'none' : 'block';
+          if (authSignoutLink) authSignoutLink.style.display = isLoggedIn ? 'block' : 'none';
+
+          // Handle sign-out button
+          if (signoutBtn) {
+            signoutBtn.addEventListener('click', async () => {
+              await signOut();
+            });
+          }
+        } catch (err) {
+          // If session check fails, treat as logged out
+          console.warn('Auth check failed:', err);
+          if (authGatedLinks) authGatedLinks.style.display = 'none';
+          if (authSigninLink) authSigninLink.style.display = 'block';
+          if (authSignoutLink) authSignoutLink.style.display = 'none';
+        }
+      };
+
+      await syncAuthUI();
+    })();
   </script>
 </body>
 </html>
