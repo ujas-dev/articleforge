@@ -186,8 +186,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
 
     // Handle auth state for nav links and sign-in/out buttons
     (async () => {
-      const { requireSession } = await import('../lib/auth.js');
-      const { signOut } = await import('../lib/auth.js');
+      const { getSession, signOut } = await import('../lib/auth.js');
 
       const authGatedLinks = document.getElementById('auth-gated-links');
       const authSigninLink = document.getElementById('auth-signin-link');
@@ -196,7 +195,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
 
       const syncAuthUI = async () => {
         try {
-          const session = await requireSession();
+          const session = await getSession();
           const isLoggedIn = !!session;
 
           // Show/hide auth-gated links

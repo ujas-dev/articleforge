@@ -20,6 +20,20 @@ export async function requireSession(): Promise<{ userId: string } | null> {
   return { userId: data.user.id };
 }
 
+/**
+ * Non-redirecting session check. Returns { userId } if the user is logged in,
+ * or null otherwise. Does NOT redirect to login. Used by UI components that
+ * need to show/hide elements based on auth state (e.g. nav menus).
+ */
+export async function getSession(): Promise<{ userId: string } | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb.auth.getUser();
+  if (error || !data.user) {
+    return null;
+  }
+  return { userId: data.user.id };
+}
+
 export async function signInGitHub() {
   await getSupabase().auth.signInWithOAuth({
     provider: 'github',
