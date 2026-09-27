@@ -88,7 +88,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       let stored = null;
       try {
         stored = localStorage.getItem('af-theme');
-      } catch {
+      } catch (err) {
         stored = null;
       }
       const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
