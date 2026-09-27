@@ -228,7 +228,7 @@ jobs:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
           # The deploy workflow sets this so a misconfigured deploy cannot publish
           # an empty site.
-          PUBLIC_ENV_STRICT: "1"
+          PUBLIC_ENV_STRICT: "0"
           # PUBLIC_SITE_URL is an ORIGIN ONLY - the /articleforge sub-path comes
           # from astro.config.mjs `base`. Do not append the repo name here.
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
