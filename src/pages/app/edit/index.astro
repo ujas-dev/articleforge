@@ -141,6 +141,24 @@ import { sitePath } from '../../../lib/site';
     button.textContent = button.dataset.defaultLabel ?? button.textContent ?? '';
   };
 
+  /**
+   * The Publish button is only meaningful on a draft. Once an article is
+   * published the state machine disallows published -> published, so the
+   * button is greyed out to prevent a click that would throw
+   * "cannot transition published to published".
+   */
+  const syncPublishButton = () => {
+    const btn = el('publish-btn') as HTMLButtonElement;
+    if (!btn) return;
+    if (currentStatus === 'published') {
+      btn.disabled = true;
+      btn.title = 'Already published - use the Save draft button to edit.';
+    } else {
+      btn.disabled = false;
+      btn.title = '';
+    }
+  };
+
   /** F14: every Supabase-backed start-up path reports through the live region. */
   const boot = async (action: (session: { userId: string }) => Promise<void>) => {
     try {
@@ -261,6 +279,7 @@ import { sitePath } from '../../../lib/site';
     fillSeoPanel(seo);
     updateCounts();
     await loadSiteSeo(session.userId);
+    syncPublishButton();
   };
 
   el('content').addEventListener('input', updateCounts);
@@ -386,13 +405,20 @@ import { sitePath } from '../../../lib/site';
       // user cannot miss it.
       try {
         await updateArticle(articleId, collectPatch());
-        await changeStatus(
-          articleId,
-          { status: currentStatus, published_at: currentPublishedAt },
-          'published'
-        );
-        currentStatus = 'published';
-        currentPublishedAt = new Date().toISOString();
+        // Re-publishing an article that is already published is a no-op for the
+        // status machine (published -> published is not a valid transition),
+        // but the article content still needs saving. Skip the transition in
+        // that case instead of letting it throw "cannot transition published to
+        // published".
+        if (currentStatus !== 'published') {
+          await changeStatus(
+            articleId,
+            { status: currentStatus, published_at: currentPublishedAt },
+            'published'
+          );
+          currentStatus = 'published';
+          currentPublishedAt = new Date().toISOString();
+        }
       } catch (err) {
         console.error('[publish] failed', err);
         throw err;
