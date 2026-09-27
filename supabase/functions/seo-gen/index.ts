@@ -1,7 +1,15 @@
 ﻿import { heuristicStrategy } from '../_shared/heuristic.ts';
 
+// Dynamically set the CORS origin based on auth state.
+# If the request includes an Authorization header (user is logged in from the editor),
+# use the specific GitHub Pages origin so the browser can send cookies/credentials.
+# Otherwise (purely public request), use '*' so the function is callable from anywhere.
+const corsOrigin = req.headers.get('Authorization')
+  ? 'https://ujas-dev.github.io'
+  : '*';
+
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': corsOrigin,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
