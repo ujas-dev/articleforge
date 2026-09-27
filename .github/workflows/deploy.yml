@@ -214,13 +214,13 @@ jobs:
             exit 1
           fi
           echo "::endgroup::"
-      - run: npm run check
+      - run: set -x && npm run check
         env:
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
-      - run: npm run check:functions
-      - run: npm run lint
+      - run: set -x && npm run check:functions
+      - run: set -x && npm run lint
       - run: npm run test
       - run: npm run audit
       - name: Debug Node.js version
@@ -231,7 +231,22 @@ jobs:
         run: echo "PUBLIC_ENV_STRICT=$PUBLIC_ENV_STRICT" && echo "PUBLIC_SITE_URL=$PUBLIC_SITE_URL" && echo "PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL" && echo "PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY:0:20}..."
       - name: Debug node_modules
         run: ls -la node_modules/.bin/ | head -20
-      - run: npm run build
+      - name: Run build and capture output
+        run: |
+          npm run build 2>&1 | tee /tmp/build-output.log
+          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          echo "Build exit code: $BUILD_EXIT_CODE"
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_EXIT_CODE"
+            cat /tmp/build-output.log
+            exit $BUILD_EXIT_CODE
+          fi
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-output
+          path: /tmp/build-output.log
         env:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
           # The deploy workflow sets this so a misconfigured deploy cannot publish
