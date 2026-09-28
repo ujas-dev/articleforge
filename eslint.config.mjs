@@ -21,6 +21,11 @@ export default [
     files: ['**/*.{ts,tsx,js,mjs,cjs,astro}'],
     languageOptions: {
       globals: { ...globals.browser }
+    },
+    rules: {
+      // Allow underscore-prefixed variables (e.g., catch (_) {}) to suppress
+      // unused variable warnings for intentionally unused error bindings.
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }
   },
   {
@@ -28,6 +33,9 @@ export default [
     files: ['*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}'],
     languageOptions: {
       globals: { ...globals.node }
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }
   },
   {
@@ -35,12 +43,18 @@ export default [
     files: ['supabase/functions/**/*.ts'],
     languageOptions: {
       globals: { Deno: 'readonly' }
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }
   },
   {
     files: ['src/**/*.test.ts'],
     languageOptions: {
       globals: { ...globals.node }
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
     }
   }
 ];
