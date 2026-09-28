@@ -223,6 +223,25 @@ jobs:
       - run: npm run lint
       - run: npm run test
       - run: npm run audit
+      - name: Debug environment
+        run: env | sort
+      - name: Debug node version
+        run: node --version
+      - name: Debug npm version
+        run: npm --version
+      - name: Debug astro version
+        run: npx astro --version
+      - name: Run build and capture output
+        run: |
+          set -e
+          npm run build 2>&1 | tee /tmp/build.log || true
+          echo "Exit code: $?"
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: /tmp/build.log
       - run: npm run build
         env:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
