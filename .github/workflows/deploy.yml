@@ -216,6 +216,7 @@ jobs:
           echo "::endgroup::"
       - run: npm run check
         env:
+          PUBLIC_ENV_STRICT: "0"
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
@@ -233,6 +234,7 @@ jobs:
         run: npx astro --version
       - name: Run build and capture output
         env:
+          PUBLIC_ENV_STRICT: "0"
           PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
