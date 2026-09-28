@@ -1,6 +1,10 @@
 ﻿import { heuristicStrategy } from '../_shared/heuristic.ts';
 
-// CORS helper: dynamic origin based on auth state, computed per-request inside the handler.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
 
 interface OpenAiResponse {
   choices?: { message?: { content?: string } }[];
@@ -44,12 +48,6 @@ function isValidStrategy(s: unknown): boolean {
 }
 
 Deno.serve(async (req: Request) => {
-  const corsOrigin = req.headers.get('Authorization') ? 'https://ujas-dev.github.io' : '*';
-  const CORS = {
-    'Access-Control-Allow-Origin': corsOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'method not allowed' }), { status: 405, headers: { ...CORS, 'Content-Type': 'application/json' } });
