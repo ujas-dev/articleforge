@@ -234,11 +234,16 @@ jobs:
       - name: Run build and capture output
         run: |
           set -e
-          npm run build 2>&1 | tee /tmp/build.log || true
-          echo "BUILD_EXIT_CODE=$?" >> /tmp/build-output.env
+          npm run build 2>&1 | tee /tmp/build.log
+          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          echo "BUILD_EXIT_CODE=$BUILD_EXIT_CODE" >> /tmp/build-output.env
           echo "BUILD_STDOUT_START" >> /tmp/build-output.env
           cat /tmp/build.log >> /tmp/build-output.env
           echo "BUILD_STDOUT_END" >> /tmp/build-output.env
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "Build failed with exit code $BUILD_EXIT_CODE"
+            exit $BUILD_EXIT_CODE
+          fi
       - name: Upload build output
         uses: actions/upload-artifact@v4
         if: always()
