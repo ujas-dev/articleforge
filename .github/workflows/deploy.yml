@@ -235,13 +235,16 @@ jobs:
         run: |
           set -e
           npm run build 2>&1 | tee /tmp/build.log || true
-          echo "Exit code: $?"
-      - name: Upload build log
+          echo "BUILD_EXIT_CODE=$?" >> /tmp/build-output.env
+          echo "BUILD_STDOUT_START" >> /tmp/build-output.env
+          cat /tmp/build.log >> /tmp/build-output.env
+          echo "BUILD_STDOUT_END" >> /tmp/build-output.env
+      - name: Upload build output
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: build-log
-          path: /tmp/build.log
+          name: build-output
+          path: /tmp/build-output.env
       - run: npm run build
         env:
           # PUBLIC_ENV_STRICT=1 makes a missing public var a fatal build error.
