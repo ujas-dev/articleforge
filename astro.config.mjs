@@ -21,7 +21,7 @@ function toOrigin(raw) {
   if (!raw) return undefined;
   try {
     return new URL(raw).origin;
-  } catch (_) {
+  } catch {
     return undefined;
   }
 }
