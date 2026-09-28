@@ -232,6 +232,10 @@ jobs:
       - name: Debug astro version
         run: npx astro --version
       - name: Run build and capture output
+        env:
+          PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           echo "=== Starting Astro build ==="
           set -e
