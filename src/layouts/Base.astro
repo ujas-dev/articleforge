@@ -89,7 +89,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       let stored = null;
       try {
         stored = localStorage.getItem('af-theme');
-      } catch {
+      } catch (_) {
         stored = null;
       }
       const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -97,25 +97,20 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
     })();
   </script>
   <script>
-    // Auth state handling for nav menus
-    // Check auth state and show/hide nav menus
-    const { getSession } = require('./lib/auth');
-    getSession().then(session => {
-      window.__afAuthState = !!session;
+    // Auth state handling for nav menus: reveal gated links when signed in.
+    import('../lib/auth').then(({ getSession }) => getSession()).then((session) => {
       const authNav = document.querySelector('.af-auth-nav');
       const authBtn = document.querySelector('.af-auth-buttons');
       const signinLink = document.querySelector('.af-signin-link');
       const signoutBtn = document.getElementById('af-signout');
-      
       if (session) {
         if (authNav) authNav.classList.remove('hidden');
         if (authBtn) authBtn.classList.remove('hidden');
         if (signinLink) signinLink.classList.add('hidden');
         if (signoutBtn) {
-          signoutBtn.onclick = () => {
-            const { signOut } = require('./lib/auth');
-            signOut().then(() => window.location.href = '/');
-          };
+          signoutBtn.addEventListener('click', () => {
+            import('../lib/auth').then(({ signOut }) => signOut());
+          });
         }
       } else {
         if (authNav) authNav.classList.add('hidden');
@@ -123,41 +118,12 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
         if (signinLink) signinLink.classList.remove('hidden');
       }
     }).catch(() => {
-      // If check fails, show sign in link
-      if (signinLink) signinLink.classList.remove('hidden');
-    });
-  </script>
-  <script>
-    // Auth state handling for nav menus
-    // Check auth state and show/hide nav menus
-    const { getSession } = require('./lib/auth');
-    getSession().then(session => {
-      window.__afAuthState = !!session;
-      const authNav = document.querySelector('.af-auth-nav');
-      const authBtn = document.querySelector('.af-auth-buttons');
       const signinLink = document.querySelector('.af-signin-link');
-      const signoutBtn = document.getElementById('af-signout');
-      
-      if (session) {
-        if (authNav) authNav.classList.remove('hidden');
-        if (authBtn) authBtn.classList.remove('hidden');
-        if (signinLink) signinLink.classList.add('hidden');
-        if (signoutBtn) {
-          signoutBtn.onclick = () => {
-            const { signOut } = require('./lib/auth');
-            signOut().then(() => window.location.href = '/');
-          };
-        }
-      } else {
-        if (authNav) authNav.classList.add('hidden');
-        if (authBtn) authBtn.classList.add('hidden');
-        if (signinLink) signinLink.classList.remove('hidden');
-      }
-    }).catch(() => {
-      // If check fails, show sign in link
       if (signinLink) signinLink.classList.remove('hidden');
     });
   </script>
+
+
 </head>
 <body class="antialiased min-h-screen flex flex-col">
   <a class="af-skip" href="#main">Skip to content</a>
@@ -178,7 +144,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
               </li>
             ))}
             {/* Auth-gated nav links - visible only when logged in */}
-            <div class="af-auth-nav hidden" >
+            <li class="af-auth-nav hidden">
               <ul class="flex items-center gap-1">
                 {authNavLinks.map((link) => (
                   <li>
@@ -190,13 +156,13 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
                   </li>
                 ))}
               </ul>
-            </div>
+            </li>
             {/* Sign in / Sign out buttons */}
             <li class="af-auth-buttons hidden md:flex items-center gap-2" >
               <button id="af-signout" class="af-nav-link text-sm font-medium hover:underline focus:underline focus:outline-none">Sign out</button>
             </li>
             <li class="af-signin-link hidden md:flex items-center gap-2" >
-              <a class="af-nav-link text-sm font-medium hover:underline" href="/app/login/">Sign in</a>
+              <a class="af-nav-link text-sm font-medium hover:underline" href={sitePath('/app/login/')}>Sign in</a>
             </li>
             <li>
               <button
@@ -246,7 +212,7 @@ const isCurrent = (href: string) => Astro.url.pathname === href || Astro.url.pat
       const dark = document.documentElement.classList.toggle('dark');
       try {
         localStorage.setItem('af-theme', dark ? 'dark' : 'light');
-      } catch {
+      } catch (_) {
         // Private-mode browsers can refuse storage; the theme still applies.
       }
       sync();
